@@ -18,9 +18,6 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 import { useRouter } from "expo-router";
 
-// IMPORT DO REVENUECAT
-import Purchases from "react-native-purchases";
-
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 
@@ -33,55 +30,8 @@ Passo 1 (Triagem): Antes de começar vamos perguntar as informações do usuári
 Passo 2 (Triagem): Pergunte os sintomas principais e há quanto tempo o paciente sente isso.
 Passo 3 (Histórico): Pergunte sobre tratamentos atuais, medicamentos convencionais e se há histórico de psiquiatria na família (para avaliar contraindicação de THC).
 Passo 4 (Experiência): Pergunte se o paciente já teve experiência prévia com cannabis na vida.
-Passo 5 (Prescrição e Fim): Com base nas respostas, simule um plano de tratamento (ex: Óleo de CBD Full Spectrum, começando com poucas gotas). Explique brevemente o processo da Anvisa.
-Passo 6 (Escrevrer Laudo): "Laudo Médico para Uso de Cannabis Medicinal
-
-Descrição do Diagnóstico:
-Paciente apresenta quadro de transtorno de ansiedade generalizada, caracterizado por preocupações excessivas e persistentes sobre diversas situações do cotidiano, acompanhadas de sintomas físicos como tensão muscular, fadiga, irritabilidade e dificuldades de concentração. Essas manifestações têm impactado negativamente a qualidade de vida do paciente, interferindo em suas atividades diárias e no seu bem-estar emocional.
-
-Recomendações e Tratamento:
-O tratamento indicado inclui o uso de cannabis medicinal contendo canabidiol (CBD) e, quando clinicamente indicado, tetrahidrocanabinol (THC), de acordo com a RDC Nº 327/2019 da ANVISA.
-
-Formas farmacêuticas autorizadas (genérico):
-Flores in natura, óleos, gummies e extrações.
-
-Formas específicas recomendadas para este paciente:
-Óleo de CBD isolado e flor in natura com baixo teor de THC para uso noturno, visando o controle dos sintomas de ansiedade e a promoção do relaxamento.
-
-A prescrição respeitará as normas estabelecidas pela RDC Nº 327/2019 da ANVISA e seguirá a titulação individualizada conforme resposta clínica do paciente. O paciente poderá adquirir a medicação de forma fracionada ou em lotes únicos, desde que os volumes totais estejam dentro da quantidade expressamente autorizada na receita médica.
-
-Declaração do Médico:
-Com base na avaliação criteriosa e em minhas responsabilidades como médico regulamentado pela legislação brasileira e diretrizes éticas da prática médica, concluo que o paciente é apto para o tratamento com cannabis medicinal contendo CBD e, quando indicado, THC. Esta avaliação demonstra que o tratamento não afeta negativamente as capacidades cognitivas ou motoras do paciente, permitindo-lhe: 1. Conduzir veículos leves e pesados; 2. Operar maquinário pesado; 3. Realizar suas atividades diárias, incluindo estudar e trabalhar, sem comprometer a segurança. Esta autorização está em conformidade com a RDC Nº 327/2019 da ANVISA, com o Código de Ética Médica e com decisões judiciais recentes (TRF-1 e TJ-SP), que reconhecem que o uso de cannabis medicinal, quando devidamente prescrito e monitorado, não impede o exercício pleno das funções do paciente.
-
-Direito ao Porte Medicinal:
-O paciente está legalmente amparado para portar e armazenar a quantidade de medicamento constante em sua prescrição, conforme previsto no artigo 2º, parágrafo único, da Lei nº 11.343/2006 (Lei de Drogas).
-
-Uso Individual e Responsável:
-O uso da cannabis medicinal deve ser estritamente individual e intransferível, sendo vedado o repasse a terceiros. O descumprimento poderá configurar ilícito nos termos do Art. 33 da Lei nº 11.343/2006.
-
-Importante:
-O monitoramento contínuo do paciente é essencial para assegurar eficácia e segurança do tratamento. Alterações clínicas ou efeitos adversos devem ser comunicados ao médico responsável.
-
-Risco da interrupção:
-A interrupção ou apreensão indevida da medicação pode acarretar agravo clínico significativo, incluindo recaída de sintomas graves como crises de ansiedade e incapacidade de realizar atividades diárias. Assim, a continuidade do tratamento é imprescindível e inadiável, seja por aquisição legal ou produção pessoal com respaldo judicial.
-
-Validade:
-Este laudo médico é válido por 3 (três) meses a partir da data de emissão, ou até nova avaliação médica.
-
-Este laudo tem como finalidade comprovar a indicação médica para uso de produtos à base de Cannabis medicinal, conforme avaliação clínica e critérios terapêuticos estabelecidos pelo profissional prescritor.
-
-A presente declaração destina-se exclusivamente à comprovação do uso terapêutico e à aquisição regular de produtos derivados de Cannabis junto a:
-
-Associações de pacientes legalmente constituídas, e/ou
-
-Empresas e distribuidoras devidamente autorizadas pela ANVISA, inclusive para processos de importação de produtos à base de Cannabis medicinal, nos termos da RDC nº 327/2019, RDC nº 660/2022 e demais normas vigentes.
-
-IMPORTANTE:
-Este documento não é válido para instrução de Habeas Corpus (HC) ou autorização judicial de cultivo doméstico de Cannabis, tendo validade apenas para fins terapêuticos e comprovação do uso clínico regular da medicação.
-
-CID-10:
-F41.1 - Transtorno de Ansiedade Generalizada"
-MUITO IMPORTANTE: No exato final da sua resposta do Passo 5, você OBRIGATORIAMENTE deve escrever a tag [FIM_DA_CONSULTA].
+Passo 5 (Prescrição e Fim): Com base nas respostas, simule um plano de tratamento (ex: Óleo de CBD Full Spectrum, começando com poucas gotas,). Explique brevemente o processo da Anvisa.
+Passo 6 (Escrevrer Laudo): "Laudo Médico para Uso de Cannabis Medicinal" [FIM_DA_CONSULTA].
 
 Regras Gerais:
 - Na primeira mensagem (Passo 1), lembre que você é uma IA e não substitui um médico.
@@ -134,11 +84,6 @@ export default function App() {
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Novos estados para controlar a compra
-  const [isPurchasing, setIsPurchasing] = useState(false);
-  const [pendingFinalMessages, setPendingFinalMessages] = useState(null);
-
   const [isConsultationEnded, setIsConsultationEnded] = useState(false);
 
   const flatListRef = useRef(null);
@@ -148,67 +93,6 @@ export default function App() {
     model: "gemini-2.5-flash",
     systemInstruction: systemInstruction,
   });
-
-  // 1. Configurar o RevenueCat ao iniciar o App
-  useEffect(() => {
-    const configurePurchases = async () => {
-      // Substitua pelas suas chaves públicas do RevenueCat
-      if (Platform.OS === "ios") {
-        Purchases.configure({ apiKey: "appl_gCeGYWQANUACtrAqWvmZbWWbRIo" });
-      }
-    };
-
-    configurePurchases();
-  }, []);
-
-  // 2. Função de Processamento de Compra
-  const processPurchaseAndSave = async (finalMessages) => {
-    setIsPurchasing(true);
-    try {
-      // Busca os pacotes configurados no RevenueCat
-      const offerings = await Purchases.getOfferings();
-
-      console.log("Offerings disponíveis:", offerings);
-
-      if (
-        offerings.current !== null &&
-        offerings.current.availablePackages.length !== 0
-      ) {
-        // Pega o primeiro pacote disponível (ex: Produto Consumível de R$ 99,00)
-        const packageToBuy = offerings.current.availablePackages[0];
-
-        // Dispara o modal nativo de pagamento da Apple/Google
-        const { customerInfo } = await Purchases.purchasePackage(packageToBuy);
-
-        // Se o código chegou aqui, a compra foi um SUCESSO.
-        // Agora sim, finalizamos e salvamos.
-        setIsConsultationEnded(true);
-        setPendingFinalMessages(null); // Limpa as mensagens pendentes
-        await saveConsultation(finalMessages);
-      } else {
-        Alert.alert(
-          "Aviso",
-          "Nenhum pacote de pagamento configurado no momento.",
-        );
-      }
-    } catch (error) {
-      if (!error.userCancelled) {
-        // Erro real de cartão, conexão, etc.
-        Alert.alert("Erro na Compra", error.message);
-      } else {
-        // Usuário fechou o modal de pagamento
-        Alert.alert(
-          "Pagamento Cancelado",
-          "Você precisa finalizar o pagamento para liberar seu laudo.",
-        );
-        // Guarda as mensagens para ele tentar pagar novamente através de um botão
-        setIsConsultationEnded(true);
-        setPendingFinalMessages(finalMessages);
-      }
-    } finally {
-      setIsPurchasing(false);
-    }
-  };
 
   const saveConsultation = async (finalMessages) => {
     setIsSaving(true);
@@ -226,7 +110,7 @@ export default function App() {
 
       Alert.alert(
         "Consulta Finalizada",
-        "Pagamento aprovado! Seu laudo simulado e histórico foram salvos com sucesso.",
+        "Seu laudo simulado e histórico foram salvos com sucesso.",
         [
           {
             onPress: () => {
@@ -267,6 +151,7 @@ export default function App() {
     try {
       const chatHistory = updatedMessages
         .filter((msg, index) => {
+          // Ignora a primeira mensagem de sistema no histórico da API
           if (index === 0 && msg.role === "model") return false;
           return true;
         })
@@ -293,12 +178,14 @@ export default function App() {
         role: "model",
         text: responseText,
       };
+
       const finalMessageList = [...updatedMessages, newModelMessage];
       setMessages(finalMessageList);
 
-      // 3. Se a IA emitiu a tag, iniciamos o fluxo de pagamento antes de salvar
+      // Se a IA emitiu a tag, finaliza a consulta e salva direto
       if (hasEnded) {
-        await processPurchaseAndSave(finalMessageList);
+        setIsConsultationEnded(true);
+        await saveConsultation(finalMessageList);
       }
     } catch (error) {
       console.error("Erro ao chamar o Gemini:", error);
@@ -336,15 +223,13 @@ export default function App() {
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Dr. Gemini</Text>
           <Text style={styles.headerSubtitle}>
-            {isConsultationEnded && !pendingFinalMessages
+            {isConsultationEnded
               ? "Consulta Finalizada"
               : "Clínica Canabinoide"}
           </Text>
         </View>
         <View style={styles.headerRight}>
-          {(isSaving || isPurchasing) && (
-            <ActivityIndicator color="#34C759" size="small" />
-          )}
+          {isSaving && <ActivityIndicator color="#34C759" size="small" />}
         </View>
       </View>
 
@@ -366,71 +251,48 @@ export default function App() {
         style={styles.inputWrapper}
       >
         <View style={styles.inputContainer}>
-          {/* 4. Tratamento visual caso haja um pagamento pendente (usuário cancelou a tela da Apple/Google) */}
-          {pendingFinalMessages ? (
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                { flex: 1, backgroundColor: "#007AFF" },
-              ]}
-              onPress={() => processPurchaseAndSave(pendingFinalMessages)}
-              disabled={isPurchasing}
-            >
-              {isPurchasing ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.sendButtonText}>
-                  Finalizar Pagamento e Ver Laudo
-                </Text>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder={
-                  isConsultationEnded ? "Consulta encerrada." : "Mensagem..."
-                }
-                placeholderTextColor="#8E8E93"
-                value={inputText}
-                onChangeText={setInputText}
-                multiline
-                editable={!isConsultationEnded}
-              />
-              <TouchableOpacity
+          <TextInput
+            style={styles.input}
+            placeholder={
+              isConsultationEnded ? "Consulta encerrada." : "Mensagem..."
+            }
+            placeholderTextColor="#8E8E93"
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            editable={!isConsultationEnded}
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              (!inputText.trim() || isConsultationEnded) && {
+                backgroundColor: "#3A3A3C",
+              },
+            ]}
+            onPress={sendMessage}
+            disabled={isLoading || !inputText.trim() || isConsultationEnded}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text
                 style={[
-                  styles.sendButton,
+                  styles.sendButtonText,
                   (!inputText.trim() || isConsultationEnded) && {
-                    backgroundColor: "#3A3A3C",
+                    color: "#8E8E93",
                   },
                 ]}
-                onPress={sendMessage}
-                disabled={isLoading || !inputText.trim() || isConsultationEnded}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text
-                    style={[
-                      styles.sendButtonText,
-                      (!inputText.trim() || isConsultationEnded) && {
-                        color: "#8E8E93",
-                      },
-                    ]}
-                  >
-                    Enviar
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
+                Enviar
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// ... Estilos mantidos exatamente como no seu código original ...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000000" },
   header: {

@@ -1,153 +1,76 @@
-import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import {
-  Animated,
-  Dimensions,
-  FlatList,
-  Platform,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
+  TouchableOpacity,
+  SafeAreaView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 
-const { width, height } = Dimensions.get("window");
+import { auth } from "@/firebaseConfig";
 
-const slides = [
-  {
-    id: "1",
-    title: "Bem-vindo ao Dr. Gemini",
-    description:
-      "Sua plataforma segura para simular consultas médicas de cannabis medicinal no Brasil.",
-    icon: "🌱",
-  },
-  {
-    id: "2",
-    title: "Sua Experiência Digital",
-    description:
-      "Nossa IA simula uma avaliação real, investigando sintomas para traçar o melhor plano.",
-    icon: "💬",
-  },
-  {
-    id: "3",
-    title: "Entenda o Tratamento",
-    description:
-      "Aprenda sobre dosagem, titulação e como funciona a terapia canabinoide.",
-    icon: "💧",
-  },
-  {
-    id: "4",
-    title: "Processo Anvisa Simplificado",
-    description:
-      "No final, geramos um laudo simulado e te guiamos pelo processo legal de importação.",
-    icon: "📄",
-  },
-];
-
-const OnboardingItem = ({ item }) => {
-  return (
-    <View style={styles.slide}>
-      {/* Container estilo ícone da Apple (Squircle) */}
-      <View style={styles.iconContainer}>
-        <Text style={styles.iconText}>{item.icon}</Text>
-      </View>
-
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.description}>{item.description}</Text>
-      </View>
-    </View>
-  );
-};
-
-export default function Onboarding() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const slidesRef = useRef(null);
-
+export default function OnboardingScreen() {
   const router = useRouter();
 
-  const viewableItemsChanged = useRef(({ viewableItems }) => {
-    setCurrentIndex(viewableItems[0].index);
-  }).current;
-
-  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
-
-  const handleNextPress = () => {
-    if (currentIndex < slides.length - 1) {
-      slidesRef.current.scrollToIndex({ index: currentIndex + 1 });
-    } else {
-      router.push("/(tabs)");
-    }
-  };
-
-  const handleSkipPress = () => {
-    // Adicionado o redirecionamento aqui também para o botão Pular funcionar
-    router.push("/(tabs)");
-  };
+  const isLogged = auth.currentUser; // Verifica se o usuário está logado
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        {currentIndex < slides.length - 1 && (
-          <TouchableOpacity onPress={handleSkipPress} style={styles.skipButton}>
-            <Text style={styles.skipText}>Pular</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* StatusBar escura porque o fundo agora é branco */}
+      <StatusBar style="dark" />
 
-      <FlatList
-        data={slides}
-        renderItem={({ item }) => <OnboardingItem item={item} />}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        pagingEnabled
-        bounces={false}
-        keyExtractor={(item) => item.id}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false },
-        )}
-        onViewableItemsChanged={viewableItemsChanged}
-        viewabilityConfig={viewConfig}
-        ref={slidesRef}
-        scrollEventThrottle={32}
-      />
-
-      <View style={styles.footer}>
-        <View style={styles.paginator}>
-          {slides.map((_, i) => {
-            const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-
-            // Animação sutil para a largura
-            const dotWidth = scrollX.interpolate({
-              inputRange,
-              outputRange: [8, 18, 8],
-              extrapolate: "clamp",
-            });
-
-            // Cores: Branco para o ativo, Cinza escuro para os inativos
-            const backgroundColor = scrollX.interpolate({
-              inputRange,
-              outputRange: ["#3A3A3C", "#FFFFFF", "#3A3A3C"],
-              extrapolate: "clamp",
-            });
-
-            return (
-              <Animated.View
-                key={i.toString()}
-                style={[styles.dot, { width: dotWidth, backgroundColor }]}
-              />
-            );
-          })}
+      <View style={styles.content}>
+        {/* ÍCONE DE DESTAQUE SUPERIOR (Estilo Apple Health) */}
+        <View style={styles.iconContainer}>
+          <View style={styles.iconBackground}>
+            <Feather name="activity" size={32} color="#34C759" />
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleNextPress}>
-          <Text style={styles.buttonText}>
-            {currentIndex === slides.length - 1 ? "Começar" : "Continuar"}
-          </Text>
-        </TouchableOpacity>
+        {/* TÍTULO PRINCIPAL */}
+        <Text style={styles.title}>
+          Um tratamento seguro, legal e humanizado para transformar sua saúde
+          com <Text style={styles.titleHighlight}>cannabis medicinal.</Text>
+        </Text>
+
+        {/* PARÁGRAFO EXPLICATIVO */}
+        <Text style={styles.subtitle}>
+          Atendimento médico especializado e suporte contínuo. A{" "}
+          <Text style={styles.textBold}>Canna Consult</Text> une ciência e
+          tecnologia para ajudar você a superar insônia, ansiedade e dores
+          crônicas, com total segurança jurídica.
+        </Text>
+
+        {/* ESPAÇADOR FLEXÍVEL PARA EMPURRAR BOTÕES PARA BAIXO */}
+        <View style={styles.spacer} />
+
+        {/* BOTÕES DE AÇÃO */}
+        <View style={styles.buttonsWrapper}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.8}
+            onPress={() => {
+              if (isLogged) {
+                router.push("/(available-physicians)");
+              } else {
+                router.push("/(login)");
+              }
+            }}
+          >
+            <Text style={styles.primaryButtonText}>Iniciar Avaliação</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            activeOpacity={0.6}
+            onPress={() => router.push("/(area-patient)")}
+          >
+            <Text style={styles.secondaryButtonText}>Área do Paciente</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -156,90 +79,73 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000", // Preto Verdadeiro (iOS Dark Mode)
+    backgroundColor: "#FFFFFF", // Fundo super clean e branco
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
+  content: {
+    flex: 1,
     paddingHorizontal: 24,
-    marginTop: 10,
-    height: 40,
-  },
-  skipButton: {
-    padding: 8,
-  },
-  skipText: {
-    color: "#8E8E93", // Cinza padrão do sistema
-    fontSize: 17,
-    fontWeight: "500",
-  },
-  slide: {
-    width: width,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-    paddingBottom: 60, // Sobe o conteúdo um pouco para fugir do rodapé
+    paddingTop: 60,
+    paddingBottom: 20,
   },
   iconContainer: {
-    width: 140,
-    height: 140,
-    backgroundColor: "#1C1C1E", // Cinza elevado do iOS
-    borderRadius: 36, // Efeito "Squircle" (Canto arredondado Apple)
+    marginBottom: 32,
+  },
+  iconBackground: {
+    width: 64,
+    height: 64,
+    borderRadius: 18, // Curvatura padrão de ícone de app iOS
+    backgroundColor: "rgba(52, 199, 89, 0.12)", // Fundo verde translúcido super suave
     justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 50,
-    // Sombra sutil
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  iconText: {
-    fontSize: 72,
-  },
-  textContainer: {
     alignItems: "center",
   },
   title: {
-    color: "#FFFFFF",
-    fontSize: 32, // Tamanho de título grande iOS
-    fontWeight: "700",
-    textAlign: "center",
+    fontSize: 34,
+    fontWeight: "800", // Título bem grosso estilo "Large Title" do iOS
+    color: "#000000",
+    lineHeight: 41,
+    letterSpacing: -0.5,
     marginBottom: 16,
-    letterSpacing: 0.5,
   },
-  description: {
-    color: "#8E8E93", // Cinza secundário iOS
-    fontSize: 17, // Padrão de leitura Apple
-    textAlign: "center",
+  titleHighlight: {
+    color: "#34C759", // Destaque na cor principal do iOS
+  },
+  subtitle: {
+    fontSize: 17, // Tamanho padrão de body text do iOS
+    color: "#3C3C43", // Cinza escuro nativo do iOS para subtítulos
     lineHeight: 24,
     fontWeight: "400",
   },
-  footer: {
+  textBold: {
+    fontWeight: "600",
+    color: "#000000",
+  },
+  spacer: {
+    flex: 1, // Isso empurra os botões para a parte inferior da tela
+  },
+  buttonsWrapper: {
+    gap: 12, // Menos espaço entre os botões para parecer um grupo coeso
+  },
+  primaryButton: {
+    backgroundColor: "#34C759", // Verde Apple
+    borderRadius: 14, // Curvatura padrão de botões no iOS 15+
     alignItems: "center",
-    paddingBottom: 40,
-    paddingHorizontal: 24,
-  },
-  paginator: {
-    flexDirection: "row",
-    height: 10,
-    marginBottom: 30,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-  },
-  button: {
-    backgroundColor: "#34C759", // Verde oficial do sistema iOS
-    borderRadius: 16, // Botão mais retangular com cantos suaves
+    justifyContent: "center",
     paddingVertical: 18,
-    width: "100%", // Ocupa quase toda a largura
-    alignItems: "center",
   },
-  buttonText: {
+  primaryButtonText: {
     color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 17, // Tamanho nativo de botão
+  },
+  secondaryButton: {
+    backgroundColor: "#F2F2F7", // Cinza clarinho nativo do iOS para botões secundários
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+  },
+  secondaryButtonText: {
+    color: "#34C759", // Texto verde combinando com a identidade
     fontWeight: "600",
     fontSize: 17,
   },
