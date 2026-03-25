@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 import { useRouter } from "expo-router";
+import Markdown from "react-native-markdown-display";
 
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -204,14 +205,11 @@ export default function App() {
           isUser ? styles.userBubble : styles.modelBubble,
         ]}
       >
-        <Text
-          style={[
-            styles.messageText,
-            isUser ? styles.userText : styles.modelText,
-          ]}
-        >
-          {item.text}
-        </Text>
+        {isUser ? (
+          <Text style={styles.userText}>{item.text}</Text>
+        ) : (
+          <Markdown style={markdownStyles}>{item.text}</Markdown>
+        )}
       </View>
     );
   };
@@ -322,17 +320,28 @@ const styles = StyleSheet.create({
   },
   chatContainer: { padding: 16, paddingBottom: 20 },
   messageBubble: {
-    maxWidth: "75%",
+    maxWidth: "85%",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  userBubble: { alignSelf: "flex-end", backgroundColor: "9#34C75" },
-  modelBubble: { alignSelf: "flex-start", backgroundColor: "#2C2C2E" },
-  messageText: { fontSize: 16, lineHeight: 22, letterSpacing: -0.3 },
-  userText: { color: "#FFFFFF" },
-  modelText: { color: "#FFFFFF" },
+  userBubble: {
+    alignSelf: "flex-end",
+    backgroundColor: "#34C759",
+    borderBottomRightRadius: 4,
+  },
+  modelBubble: {
+    alignSelf: "flex-start",
+    backgroundColor: "#2C2C2E",
+    borderBottomLeftRadius: 4,
+  },
+  userText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 22,
+    letterSpacing: -0.3,
+  },
   skeletonLineLong: {
     height: 8,
     backgroundColor: "#8E8E93",
@@ -380,3 +389,40 @@ const styles = StyleSheet.create({
   },
   sendButtonText: { color: "#FFFFFF", fontWeight: "600", fontSize: 15 },
 });
+
+const markdownStyles = {
+  body: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  strong: {
+    fontWeight: "bold",
+    color: "#34C759",
+  },
+  heading1: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    marginVertical: 5,
+    fontWeight: "bold",
+  },
+  heading2: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    marginVertical: 5,
+    fontWeight: "bold",
+  },
+  bullet_list: {
+    color: "#FFFFFF",
+  },
+  ordered_list: {
+    color: "#FFFFFF",
+  },
+  link: {
+    color: "#34C759",
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 8,
+  },
+};

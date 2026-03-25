@@ -17,7 +17,9 @@ import { db } from "../../firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 
-// Definições de tipo permanecem as mesmas
+// 1. IMPORTAR O MARKED AQUI
+import { marked } from "marked";
+
 interface ChatMessage {
   role: string;
   text: string;
@@ -35,10 +37,9 @@ export default function DownloadPDFScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  // MOCK DE DADOS DO PACIENTE
   const patientInfo = {
     name: "Alexandre Júnior",
-    cpf: "449.556.578-85", // Formatei conforme os logs
+    cpf: "449.556.578-85",
     email: "juniordias_@live.com",
     birthDate: "20/08/1997",
     address: "Rua Saldanha marinho, 2443",
@@ -55,8 +56,7 @@ export default function DownloadPDFScreen() {
 
       if (docSnap.exists()) {
         const data = docSnap.data() as ConsultationDocument;
-        const messages = data.chatHistory || [];
-        return messages;
+        return data.chatHistory || [];
       } else {
         Alert.alert("Erro", "Consulta não encontrada.");
         return [];
@@ -72,23 +72,22 @@ export default function DownloadPDFScreen() {
     logoUri: string,
     qrCodeUri: string,
   ) => {
-    // <-- Recebendo qrCodeUri aqui
-    const messagesHtml = messages
-      .map((msg) => {
-        const isUser = msg.role === "user";
-        const alignment = isUser ? "text-align: right;" : "text-align: left;";
-        const bgColor = isUser ? "#34C75E" : "#E9E9EB";
-        const textColor = isUser ? "#FFFFFF" : "#000000";
-        const senderLabel = isUser ? "Paciente" : "Assistente";
+    const chatHtml = messages
+      .map((msg, index) => {
+        console.log("Gerando HTML para mensagem:", msg);
 
-        return `
-        <div style="margin-bottom: 16px; ${alignment}">
-          <div style="display: inline-block; background-color: ${bgColor}; color: ${textColor}; padding: 10px 16px; border-radius: 20px; max-width: 75%; text-align: left; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <p style="margin: 0; font-size: 16px; line-height: 1.4;">${msg.text}</p>
-            <span style="display: block; font-size: 11px; margin-top: 4px; opacity: 0.6;">Enviado por: ${senderLabel}</span>
+        //CONVERTER E RENDERIZAR SOMENTE A ULTIMA MENSAGEM DA IA QUE É O LAUDO MEDICO
+        if (index === messages.length - 1) {
+          const messageHtml = marked(msg.text);
+          const roleClass = "ai-message";
+          const roleLabel = "Médico";
+          return `
+            <div class="message ${roleClass}">
+            <div class="message-role">${roleLabel}</div>
+            <div class="message-body">${messageHtml}</div>
           </div>
-        </div>
-      `;
+        `;
+        }
       })
       .join("");
 
@@ -139,21 +138,53 @@ export default function DownloadPDFScreen() {
               margin-bottom: 32px;
               width: 100%;
             }
+            
+            /* --- ESTILOS DO CHAT E MARKDOWN --- */
             .chat-container { 
               flex: 1;
               display: flex; 
               flex-direction: column; 
+              gap: 16px;
             }
+            .message {
+              padding: 16px;
+              border-radius: 12px;
+              margin-bottom: 16px;
+            }
+            .user-message {
+              background-color: #E5F1FF;
+              border-left: 4px solid #007AFF;
+            }
+            .ai-message {
+              background-color: #F2F2F7;
+              border-left: 4px solid #34C75E;
+            }
+            .message-role {
+              font-size: 12px;
+              font-weight: 700;
+              color: #8E8E93;
+              margin-bottom: 8px;
+              text-transform: uppercase;
+            }
+            .message-body {
+              font-size: 14px;
+              color: #1C1C1E;
+              line-height: 1.6;
+            }
+            /* Garantir que listas, negritos e parágrafos do markdown fiquem bonitos */
+            .message-body p { margin: 0 0 8px 0; }
+            .message-body p:last-child { margin: 0; }
+            .message-body ul, .message-body ol { margin: 8px 0; padding-left: 20px; }
+            .message-body strong { font-weight: 700; color: #000; }
             
-            /* --- NOVOS ESTILOS DA ASSINATURA E QR CODE --- */
+            /* --- ESTILOS DA ASSINATURA E QR CODE --- */
             .signature-block {
               margin-top: 60px;
-              display: flex; /* Cria o layout de colunas */
-              align-items: center; /* Centraliza verticalmente o QR Code e o texto */
-              justify-content: flex-end; /* Alinha o bloco inteiro à direita da página */
-              page-break-inside: avoid;
+              display: flex;
+              align-items: center; 
+              justify-content: flex-end; 
+              page-break-inside: avoid; /* Evita que a assinatura quebre pela metade em duas páginas */
             }
-            
             .signature-content {
               background-color: #F2F2F7;
               padding: 24px;
@@ -161,7 +192,7 @@ export default function DownloadPDFScreen() {
               color: #1C1C1E;
               font-size: 13px;
               line-height: 1.6;
-              max-width: 60%; /* Define a largura da coluna de texto */
+              max-width: 60%;
             }
             .signature-content p {
               margin: 4px 0;
@@ -176,11 +207,10 @@ export default function DownloadPDFScreen() {
               margin-bottom: 12px;
               color: #000000;
             }
-
             .qr-code-container {
               width: 120px;
               height: 120px;
-              margin-left: 24px; /* Espaço entre o texto e o QR Code */
+              margin-left: 24px; 
               background-color: #FFFFFF;
               padding: 12px;
               border-radius: 16px;
@@ -194,7 +224,6 @@ export default function DownloadPDFScreen() {
               height: 100%;
               object-fit: contain;
             }
-
           </style>
         </head>
         <body>
@@ -212,7 +241,7 @@ export default function DownloadPDFScreen() {
           <hr class="divider" />
 
           <div class="chat-container">
-            ${messagesHtml}
+            ${chatHtml}
           </div>
 
           <div class="signature-block">
@@ -229,11 +258,12 @@ export default function DownloadPDFScreen() {
               <img src="${qrCodeUri}" class="qr-code" alt="QR Code Estático" />
             </div>
           </div>
-
         </body>
       </html>
     `;
   };
+
+  // ... (o resto da sua função handleDownloadPDF e o componente continuam os mesmos)
 
   const handleDownloadPDF = async () => {
     setIsExporting(true);
@@ -246,20 +276,16 @@ export default function DownloadPDFScreen() {
         return;
       }
 
-      // 1. Resolve a URI da logo (Ajuste o caminho conforme necessário)
       const iconAsset = Image.resolveAssetSource(
         require("../../assets/images/icon.png"),
       );
       const logoUri = iconAsset ? iconAsset.uri : "";
 
-      // 2. Resolve a URI do QR Code (Ajuste o caminho conforme necessário, ex: '../../assets/images/qrcode.png')
-      // Para testes, você pode usar um arquivo temporário em branco se não tiver a imagem
       const qrCodeAsset = Image.resolveAssetSource(
         require("../../assets/images/qrcode.png"),
       );
       const qrCodeUri = qrCodeAsset ? qrCodeAsset.uri : "";
 
-      // 3. Passa ambas as URIs para o gerador de HTML
       const htmlContent = generateHTML(messages, logoUri, qrCodeUri);
 
       const { uri } = await Print.printToFileAsync({
@@ -332,7 +358,7 @@ export default function DownloadPDFScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Estilos da UI permanecem os mesmos
+  // ... manter seus estilos inalterados
   safeArea: { flex: 1 },
   container: {
     flex: 1,
@@ -385,9 +411,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     height: 56,
   },
-  buttonDisabled: {
-    backgroundColor: "#98E3AF",
-  },
+  buttonDisabled: { backgroundColor: "#98E3AF" },
   buttonText: {
     color: "#FFFFFF",
     fontSize: 17,
