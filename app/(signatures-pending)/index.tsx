@@ -16,6 +16,7 @@ import ReactNativeBiometrics from "react-native-biometrics";
 // Importações para geração e compartilhamento de PDF
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { auth } from "@/firebaseConfig";
 
 interface Document {
   id: string;
@@ -24,13 +25,6 @@ interface Document {
   date: string;
   mockContent: string;
 }
-
-// Mock do Médico Logado Atualmente
-const currentLoggedDoctor = {
-  name: "Dr. Roberto Almeida Dias",
-  crm: "SP 123.456",
-  signatureVisual: "Assinado Digitalmente via TouchID/FaceID",
-};
 
 const pendingDocuments: Document[] = [
   {
@@ -100,6 +94,8 @@ export default function SignaturesPendingScreen() {
   };
 
   const executarAssinaturaIndividual = async (doc: Document) => {
+    console.log(auth.currentUser, "auth user");
+
     try {
       const { available } = await rnBiometrics.isSensorAvailable();
       if (!available) {
@@ -112,8 +108,8 @@ export default function SignaturesPendingScreen() {
       const payload = JSON.stringify({
         docId: doc.id,
         timestamp: Date.now(),
-        doctorName: currentLoggedDoctor.name,
-        doctorCRM: currentLoggedDoctor.crm,
+        doctorName: auth.currentUser?.displayName,
+        doctorCRM: "123456-SP",
         action: "MED_SIGNATURE_INDIVIDUAL",
       });
 
@@ -428,11 +424,9 @@ export default function SignaturesPendingScreen() {
                   <Text style={styles.verifiedStampIcon}>✓</Text>
                   <View>
                     <Text style={styles.pdfDoctorName}>
-                      {currentLoggedDoctor.name}
+                      {auth.currentUser?.reloadUserInfo.email}
                     </Text>
-                    <Text style={styles.pdfDoctorCRM}>
-                      CRM-{currentLoggedDoctor.crm}
-                    </Text>
+                    <Text style={styles.pdfDoctorCRM}>CRM- 123456-SP</Text>
                     <Text style={styles.signatureVisualInfo}>
                       Assinado Digitalmente via TouchID/FaceID
                     </Text>
