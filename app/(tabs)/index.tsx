@@ -23,7 +23,7 @@ const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 const systemInstruction = `
-Você é o Dr. Gemini, um médico especialista em medicina canabinoide atuando no Brasil.
+Você é o Doutor, um médico especialista em medicina canabinoide atuando no Brasil.
 Seu objetivo é conduzir uma SIMULAÇÃO de consulta médica.
 Você DEVE seguir exatamente estes passos, fazendo as perguntas de um passo de cada vez e aguardando a resposta do usuário antes de ir para o próximo:
  
@@ -79,7 +79,7 @@ export default function App() {
     {
       id: "1",
       role: "model",
-      text: "Olá! Sou o Dr. Gemini. Bem-vindo à nossa simulação de consulta. Antes de começarmos, lembre-se: sou uma IA e esta é uma simulação educacional, não um conselho médico real. Para iniciarmos a nossa triagem (Passo 1), o que te traz ao consultório hoje e há quanto tempo você tem esses sintomas?",
+      text: "Olá! Sou o Doutor. Bem-vindo à nossa simulação de consulta. Antes de começarmos, lembre-se: sou uma IA e esta é uma simulação educacional, não um conselho médico real. Para iniciarmos a nossa triagem (Passo 1), o que te traz ao consultório hoje e há quanto tempo você tem esses sintomas?",
     },
   ]);
   const [inputText, setInputText] = useState("");
@@ -219,7 +219,7 @@ export default function App() {
       <View style={styles.header}>
         <View style={styles.headerLeft}></View>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Dr. Gemini</Text>
+          <Text style={styles.headerTitle}>Doutor</Text>
           <Text style={styles.headerSubtitle}>
             {isConsultationEnded
               ? "Consulta Finalizada"
