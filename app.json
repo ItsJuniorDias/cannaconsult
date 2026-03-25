@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.cannaconsult"
+      "bundleIdentifier": "com.anonymous.cannaconsult",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Precisamos do FaceID para autorizar a assinatura digital de documentos médicos."
+      }
     },
     "android": {
       "adaptiveIcon": {

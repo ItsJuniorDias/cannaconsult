@@ -17,7 +17,24 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
+// Importações do Firebase Auth e Firestore
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  setDoc,
+  doc,
+} from "firebase/firestore";
+import { auth, db } from "@/firebaseConfig"; // Ajuste o caminho
+
 // --- 1. Schemas de Validação (Zod) ---
+// VOLTAMOS PARA O CRM NO LOGIN
 const loginSchema = z.object({
   crm: z
     .string()
@@ -34,15 +51,13 @@ const registerSchema = z.object({
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
 });
 
-// Tipagem baseada nos schemas
-type FormData = z.infer<typeof registerSchema>;
+type FormData = z.infer<typeof registerSchema>; // Usamos o maior para o form state
 
 export default function MedicalLoginScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  // --- 2. Configuração do React Hook Form ---
   const {
     control,
     handleSubmit,
@@ -51,24 +66,16 @@ export default function MedicalLoginScreen() {
     reset,
     formState: { errors },
   } = useForm<FormData>({
-    // Alterna o schema de validação dinamicamente com base no estado
     resolver: zodResolver(isLogin ? loginSchema : registerSchema),
-    defaultValues: {
-      name: "",
-      crm: "",
-      email: "",
-      password: "",
-    },
+    defaultValues: { name: "", crm: "", email: "", password: "" },
   });
 
-  // Função para alternar entre Login e Cadastro e limpar os erros/campos
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     clearErrors();
     reset();
   };
 
-  // --- 3. Simulação da API de Validação do CRM ---
   const checkCrmInApi = async (crm: string) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
@@ -81,19 +88,35 @@ export default function MedicalLoginScreen() {
     });
   };
 
-  // --- 4. Submissão do Formulário ---
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
 
     try {
       if (isLogin) {
-        // Agora fazemos login usando o CRM e a Senha
-        console.log("Fazendo Login com:", data.crm, data.password);
-        // Lógica de Login (Supabase, Firebase, sua API, etc)
+        // --- LOGAR USUÁRIO (CRM + Senha) ---
+        // 1. Busca o e-mail vinculado ao CRM no Firestore
+        const q = query(
+          collection(db, "physicians"),
+          where("crm", "==", data.crm),
+        );
+        const querySnapshot = await getDocs(q);
 
-        router.replace("/(area-physician)"); // Redireciona para a área do médico após login
+        if (querySnapshot.empty) {
+          Alert.alert("Erro", "Nenhuma conta encontrada com este CRM.");
+          setIsLoading(false);
+          return;
+        }
+
+        // 2. Pega o e-mail do documento encontrado
+        const userEmail = querySnapshot.docs[0].data().email;
+
+        // 3. Faz o login no Firebase Auth usando o e-mail recuperado e a senha digitada
+        await signInWithEmailAndPassword(auth, userEmail, data.password);
+
+        console.log("Login realizado com sucesso");
+        router.replace("/(area-physician)");
       } else {
-        // Validação Assíncrona do CRM via API durante o Cadastro
+        // --- CADASTRAR USUÁRIO ---
         try {
           await checkCrmInApi(data.crm);
         } catch (error: any) {
@@ -102,13 +125,40 @@ export default function MedicalLoginScreen() {
           return;
         }
 
-        console.log("Criando conta para:", data);
-        Alert.alert("Sucesso", "Cadastro realizado com sucesso!");
+        // Cria o usuário no Auth
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          data.email,
+          data.password,
+        );
 
+        if (userCredential.user) {
+          await updateProfile(userCredential.user, { displayName: data.name });
+
+          // SALVA O CRM E E-MAIL NO FIRESTORE (Essencial para o login futuro funcionar)
+          await setDoc(doc(db, "physicians", userCredential.user.uid), {
+            name: data.name,
+            crm: data.crm,
+            email: data.email,
+            createdAt: new Date(),
+          });
+        }
+
+        Alert.alert("Sucesso", "Cadastro realizado com sucesso!");
         setIsLogin(true);
       }
-    } catch (error) {
-      Alert.alert("Erro", "Ocorreu um erro ao processar sua solicitação.");
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === "auth/email-already-in-use") {
+        Alert.alert("Erro", "Este e-mail já está em uso.");
+      } else if (
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/wrong-password"
+      ) {
+        Alert.alert("Erro", "Senha incorreta.");
+      } else {
+        Alert.alert("Erro", "Ocorreu um erro ao processar sua solicitação.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +225,7 @@ export default function MedicalLoginScreen() {
                     placeholderTextColor="#8E8E93"
                     autoCapitalize="characters"
                     value={value}
-                    onChangeText={(text) => onChange(text.toUpperCase())} // Força maiúsculas
+                    onChangeText={(text) => onChange(text.toUpperCase())}
                     editable={!isLoading}
                   />
                   {errors.crm && (
@@ -213,7 +263,7 @@ export default function MedicalLoginScreen() {
               />
             )}
 
-            {/* Campo SENHA (Sempre visível: Login e Cadastro) */}
+            {/* Campo SENHA (Sempre visível) */}
             <Controller
               control={control}
               name="password"
@@ -244,7 +294,6 @@ export default function MedicalLoginScreen() {
             )}
           </View>
 
-          {/* Botão com Loading */}
           <TouchableOpacity
             style={[
               styles.primaryButton,
@@ -261,17 +310,6 @@ export default function MedicalLoginScreen() {
               </Text>
             )}
           </TouchableOpacity>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              {isLogin ? "Não possui uma conta? " : "Já possui uma conta? "}
-            </Text>
-            <TouchableOpacity onPress={toggleAuthMode} disabled={isLoading}>
-              <Text style={styles.footerActionText}>
-                {isLogin ? "Cadastre-se" : "Faça Login"}
-              </Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

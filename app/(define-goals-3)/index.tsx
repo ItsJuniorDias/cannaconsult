@@ -1,15 +1,23 @@
-import React, { use, useState } from "react";
+import React from "react";
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
+
+// 1. Importações do Hook Form, Zod e Firebase
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { db, auth } from "@/firebaseConfig"; // Ajuste o caminho para sua configuração
+import { doc, setDoc } from "firebase/firestore";
 
 // Opções da etapa de Saúde Mental
 const MENTAL_HEALTH_OPTIONS = [
@@ -21,23 +29,68 @@ const MENTAL_HEALTH_OPTIONS = [
   { id: "panico", label: "Já teve episódios de pânico?" },
 ];
 
+// 2. Definição do Schema com Zod (Array de strings)
+const mentalHealthSchema = z.object({
+  selectedOptions: z.array(z.string()).default([]),
+});
+
 export default function DefineGoalsScreenThree() {
-  // Estado que guarda um array com os IDs das opções selecionadas (Permite múltipla escolha)
-  const [selectedOptions, setSelectedOptions] = useState([]);
-
   const router = useRouter();
+  const user = auth?.currentUser;
 
-  // Função para adicionar ou remover uma opção do array
+  // 3. Inicialização do React Hook Form
+  const {
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { isSubmitting },
+  } = useForm({
+    resolver: zodResolver(mentalHealthSchema),
+    defaultValues: {
+      selectedOptions: [],
+    },
+  });
+
+  // Observa o valor atual do array para renderizar a interface
+  const selectedOptions = watch("selectedOptions");
+
+  // 4. Função para adicionar ou remover usando setValue do Hook Form
   const toggleOption = (id) => {
-    setSelectedOptions((prev) => {
-      if (prev.includes(id)) {
-        // Se já tem, remove
-        return prev.filter((item) => item !== id);
-      } else {
-        // Se não tem, adiciona
-        return [...prev, id];
-      }
-    });
+    if (selectedOptions.includes(id)) {
+      // Se já tem, remove
+      setValue(
+        "selectedOptions",
+        selectedOptions.filter((item) => item !== id),
+      );
+    } else {
+      // Se não tem, adiciona
+      setValue("selectedOptions", [...selectedOptions, id]);
+    }
+  };
+
+  // 5. Função de salvamento no Firestore na collection 'patients'
+  const onSubmit = async (data) => {
+    if (!user?.uid) {
+      Alert.alert("Erro", "Usuário não autenticado.");
+      return;
+    }
+
+    try {
+      // Salva no documento do usuário dentro da coleção 'patients'
+      const patientRef = doc(db, "patients", user.uid);
+
+      // merge: true garante que não vamos sobrescrever os passos anteriores
+      await setDoc(
+        patientRef,
+        { mentalHealth: data.selectedOptions },
+        { merge: true },
+      );
+
+      router.push("/(define-goals-4)");
+    } catch (error) {
+      console.error("Erro ao salvar saúde mental:", error);
+      Alert.alert("Erro", "Não foi possível salvar seus dados.");
+    }
   };
 
   return (
@@ -49,6 +102,7 @@ export default function DefineGoalsScreenThree() {
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
+          disabled={isSubmitting}
         >
           <Feather name="arrow-left" size={24} color="#000000" />
         </TouchableOpacity>
@@ -85,6 +139,7 @@ export default function DefineGoalsScreenThree() {
                 activeOpacity={0.7}
                 onPress={() => toggleOption(option.id)}
                 style={[styles.tag, isSelected && styles.tagSelected]}
+                disabled={isSubmitting} // Desativa enquanto salva
               >
                 <Text
                   style={[styles.tagText, isSelected && styles.tagTextSelected]}
@@ -99,18 +154,25 @@ export default function DefineGoalsScreenThree() {
 
       {/* FOOTER FIXO */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.6}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          activeOpacity={0.6}
+          onPress={() => router.back()}
+          disabled={isSubmitting}
+        >
           <Text style={styles.secondaryButtonText}>Voltar</Text>
         </TouchableOpacity>
 
-        {/* Botão Avançar. Pode ou não estar desativado dependendo da sua regra de negócios.
-            Aqui deixei sempre ativo, pois o usuário pode não ter nenhum desses sintomas */}
+        {/* 6. Dispara o handleSubmit do Hook Form */}
         <TouchableOpacity
-          onPress={() => router.push("/(define-goals-4)")}
-          style={styles.primaryButton}
+          onPress={handleSubmit(onSubmit)}
+          style={[styles.primaryButton, isSubmitting && { opacity: 0.7 }]}
           activeOpacity={0.8}
+          disabled={isSubmitting}
         >
-          <Text style={styles.primaryButtonText}>Avançar</Text>
+          <Text style={styles.primaryButtonText}>
+            {isSubmitting ? "Salvando..." : "Avançar"}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -176,19 +238,19 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12, // Espaçamento entre os chips (nativo em React Native mais recente)
+    gap: 12,
   },
   tag: {
-    backgroundColor: "#F2F2F7", // Fundo cinza padrão iOS
+    backgroundColor: "#F2F2F7",
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 24, // Bordas bem arredondadas, estilo pílula
+    borderRadius: 24,
     borderWidth: 2,
     borderColor: "transparent",
   },
   tagSelected: {
-    backgroundColor: "#F2FFF5", // Verde bem claro
-    borderColor: "#34C759", // Borda verde forte
+    backgroundColor: "#F2FFF5",
+    borderColor: "#34C759",
   },
   tagText: {
     fontSize: 15,
@@ -197,7 +259,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   tagTextSelected: {
-    color: "#1E7132", // Verde mais escuro para o texto para garantir leitura
+    color: "#1E7132",
     fontWeight: "600",
   },
   footer: {

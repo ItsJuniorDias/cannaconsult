@@ -45,6 +45,8 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Precisamos do FaceID para autenticar seu acesso de forma segura.</string>
     <key>NSCameraUsageDescription</key>
     <string>Permitir que o aplicativo acesse sua câmera para as videoconsultas.</string>
     <key>NSMicrophoneUsageDescription</key>

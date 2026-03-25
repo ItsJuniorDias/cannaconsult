@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   StyleSheet,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -13,44 +14,99 @@ import { StatusBar } from "expo-status-bar";
 import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 
+// 1. Importações do Hook Form, Zod e Firebase
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { db, auth } from "@/firebaseConfig"; // Ajuste para o caminho real do seu projeto
+import { doc, setDoc } from "firebase/firestore";
+
 const { width } = Dimensions.get("window");
 const CARD_MARGIN = 12;
 const CARD_WIDTH = (width - 48 - CARD_MARGIN) / 2;
 
 const PRODUCT_PREFERENCES = [
-  { id: "flores", label: "Flores", icon: "feather" }, // Usando feather como folha
+  { id: "flores", label: "Flores", icon: "feather" },
   { id: "oleos", label: "Óleos", icon: "droplet" },
   { id: "extracoes", label: "Extrações", icon: "package" },
   { id: "gummies", label: "Gummies", icon: "smile" },
   { id: "pomadas", label: "Pomadas", icon: "heart" },
 ];
 
+// 2. Definição do Schema com Zod
+const preferencesSchema = z.object({
+  selectedProducts: z.array(z.string()).default([]),
+  duration: z.number().min(1, "Duração mínima é 1 mês").max(24).default(3),
+  investment: z.number().min(0).max(5000).default(1000),
+});
+
 export default function DefineGoalsScreenFive() {
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [duration, setDuration] = useState(3);
-  const [investment, setInvestment] = useState(1000);
-
   const router = useRouter();
+  const user = auth?.currentUser;
 
-  // Toggle de múltipla escolha para os produtos
+  // 3. Inicialização do React Hook Form
+  const {
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { isSubmitting },
+  } = useForm({
+    resolver: zodResolver(preferencesSchema),
+    defaultValues: {
+      selectedProducts: [],
+      duration: 3,
+      investment: 1000,
+    },
+  });
+
+  // Observamos os valores para renderizar a UI dinamicamente
+  const selectedProducts = watch("selectedProducts");
+  const duration = watch("duration");
+  const investment = watch("investment");
+
+  // 4. Funções de atualização via setValue
   const toggleProduct = (id) => {
-    setSelectedProducts((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
+    if (selectedProducts.includes(id)) {
+      setValue(
+        "selectedProducts",
+        selectedProducts.filter((item) => item !== id),
+      );
+    } else {
+      setValue("selectedProducts", [...selectedProducts, id]);
+    }
   };
 
-  // Funções do Stepper (Duração)
   const decreaseDuration = () => {
-    if (duration > 1) setDuration(duration - 1);
+    if (duration > 1) setValue("duration", duration - 1);
   };
 
   const increaseDuration = () => {
-    if (duration < 24) setDuration(duration + 1); // Limite hipotético de 2 anos
+    if (duration < 24) setValue("duration", duration + 1);
   };
 
-  // Formatar moeda
   const formatCurrency = (value) => {
     return `R$ ${value.toLocaleString("pt-BR")}`;
+  };
+
+  // 5. Função para salvar os dados finais no Firestore
+  const onSubmit = async (data) => {
+    if (!user?.uid) {
+      Alert.alert("Erro", "Usuário não autenticado.");
+      return;
+    }
+
+    try {
+      const patientRef = doc(db, "patients", user.uid);
+
+      // Salva o último grupo de informações preservando o histórico dos Passos 1 ao 4
+      await setDoc(patientRef, { preferences: data }, { merge: true });
+
+      // Sucesso! Redireciona para a tela final de perfil criado
+      router.push("/(success-profile)");
+    } catch (error) {
+      console.error("Erro ao salvar preferências finais:", error);
+      Alert.alert("Erro", "Não foi possível finalizar seu cadastro.");
+    }
   };
 
   return (
@@ -62,6 +118,7 @@ export default function DefineGoalsScreenFive() {
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
+          disabled={isSubmitting}
         >
           <Feather name="arrow-left" size={24} color="#000000" />
         </TouchableOpacity>
@@ -99,6 +156,7 @@ export default function DefineGoalsScreenFive() {
                   activeOpacity={0.7}
                   onPress={() => toggleProduct(product.id)}
                   style={[styles.card, isSelected && styles.cardSelected]}
+                  disabled={isSubmitting}
                 >
                   <View
                     style={[
@@ -137,7 +195,7 @@ export default function DefineGoalsScreenFive() {
                 duration <= 1 && styles.stepperDisabled,
               ]}
               onPress={decreaseDuration}
-              disabled={duration <= 1}
+              disabled={duration <= 1 || isSubmitting}
             >
               <Feather
                 name="minus"
@@ -153,6 +211,7 @@ export default function DefineGoalsScreenFive() {
             <TouchableOpacity
               style={styles.stepperButton}
               onPress={increaseDuration}
+              disabled={isSubmitting}
             >
               <Feather name="plus" size={20} color="#000" />
             </TouchableOpacity>
@@ -170,12 +229,13 @@ export default function DefineGoalsScreenFive() {
             style={styles.slider}
             minimumValue={0}
             maximumValue={5000}
-            step={100} // Pula de 100 em 100
+            step={100}
             value={investment}
-            onValueChange={setInvestment}
+            onValueChange={(val) => setValue("investment", val)}
             minimumTrackTintColor="#34C759"
             maximumTrackTintColor="#E5E5EA"
             thumbTintColor="#FFFFFF"
+            disabled={isSubmitting} // Bloqueia arrastar enquanto salva
           />
 
           <View style={styles.sliderValueContainer}>
@@ -189,27 +249,34 @@ export default function DefineGoalsScreenFive() {
 
       {/* FOOTER FIXO: Voltar e Finalizar */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.6}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          activeOpacity={0.6}
+          onPress={() => router.back()}
+          disabled={isSubmitting}
+        >
           <Text style={styles.secondaryButtonText}>Voltar</Text>
         </TouchableOpacity>
 
+        {/* 6. Submissão do Formulário */}
         <TouchableOpacity
-          onPress={() => router.push("/(success-profile)")}
-          style={styles.primaryButton}
+          onPress={handleSubmit(onSubmit)}
+          style={[styles.primaryButton, isSubmitting && { opacity: 0.7 }]}
           activeOpacity={0.8}
+          disabled={isSubmitting}
         >
-          <Text style={styles.primaryButtonText}>Finalizar</Text>
+          <Text style={styles.primaryButtonText}>
+            {isSubmitting ? "Finalizando..." : "Finalizar"}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
+// ... Estilos originais mantidos abaixo
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -224,19 +291,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  progressText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#8E8E93",
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  titleContainer: {
-    marginTop: 16,
-    marginBottom: 32,
-  },
+  progressText: { fontSize: 15, fontWeight: "600", color: "#8E8E93" },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+  titleContainer: { marginTop: 16, marginBottom: 32 },
   title: {
     fontSize: 32,
     fontWeight: "800",
@@ -244,25 +301,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginBottom: 12,
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#3C3C43",
-    lineHeight: 22,
-  },
-  section: {
-    marginBottom: 36,
-  },
+  subtitle: { fontSize: 16, color: "#3C3C43", lineHeight: 22 },
+  section: { marginBottom: 36 },
   sectionHeader: {
     fontSize: 20,
     fontWeight: "700",
     color: "#000000",
     marginBottom: 4,
   },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: "#8E8E93",
-    marginBottom: 16,
-  },
+  sectionSubtitle: { fontSize: 14, color: "#8E8E93", marginBottom: 16 },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -280,22 +327,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "transparent",
   },
-  cardSelected: {
-    backgroundColor: "#F2FFF5",
-    borderColor: "#34C759",
-  },
-  iconWrapper: {
-    marginBottom: 12,
-  },
-  cardLabel: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#3C3C43",
-  },
-  cardLabelSelected: {
-    color: "#1E7132",
-    fontWeight: "600",
-  },
+  cardSelected: { backgroundColor: "#F2FFF5", borderColor: "#34C759" },
+  iconWrapper: { marginBottom: 12 },
+  cardLabel: { fontSize: 15, fontWeight: "500", color: "#3C3C43" },
+  cardLabelSelected: { color: "#1E7132", fontWeight: "600" },
   stepperContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -309,9 +344,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  stepperDisabled: {
-    backgroundColor: "#F9F9F9",
-  },
+  stepperDisabled: { backgroundColor: "#F9F9F9" },
   stepperValue: {
     fontSize: 17,
     fontWeight: "600",
@@ -326,15 +359,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  sliderRange: {
-    fontSize: 14,
-    color: "#8E8E93",
-    fontWeight: "500",
-  },
+  sliderRange: { fontSize: 14, color: "#8E8E93", fontWeight: "500" },
   slider: {
     width: "100%",
     height: 40,
-    // Sombra no "thumb" (a bolinha do slider) para dar o visual do iOS
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -345,11 +373,7 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
     marginTop: 8,
   },
-  investmentText: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#000000",
-  },
+  investmentText: { fontSize: 24, fontWeight: "700", color: "#000000" },
   perMonthText: {
     fontSize: 15,
     color: "#8E8E93",
@@ -377,11 +401,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-    fontSize: 17,
-  },
+  primaryButtonText: { color: "#FFFFFF", fontWeight: "600", fontSize: 17 },
   secondaryButton: {
     flex: 1,
     backgroundColor: "#F2F2F7",
@@ -390,9 +410,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  secondaryButtonText: {
-    color: "#000000",
-    fontWeight: "600",
-    fontSize: 17,
-  },
+  secondaryButtonText: { color: "#000000", fontWeight: "600", fontSize: 17 },
 });

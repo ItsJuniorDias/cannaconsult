@@ -6,17 +6,22 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 
+// Importe o Firestore e as configurações do seu Firebase
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "@/firebaseConfig"; // <-- Ajuste este caminho
+
 const { width } = Dimensions.get("window");
 const CARD_MARGIN = 12;
-const CARD_WIDTH = (width - 48 - CARD_MARGIN) / 2; // 48 = padding horizontal total (24+24)
+const CARD_WIDTH = (width - 48 - CARD_MARGIN) / 2;
 
-// Dados extraídos da imagem, adaptados com ícones para melhor UX no mobile
 const GOALS = [
   {
     id: "1",
@@ -59,16 +64,73 @@ const GOALS = [
 ];
 
 export default function DefineGoalsScreen() {
-  // Estado para armazenar o ID selecionado (Permite apenas 1 seleção por vez)
-  const [selectedGoal, setSelectedGoal] = useState(null);
-
+  const [selectedGoals, setSelectedGoals] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  const toggleGoal = (id) => {
+    setSelectedGoals((prevGoals) => {
+      if (prevGoals.includes(id)) {
+        return prevGoals.filter((goalId) => goalId !== id);
+      } else {
+        return [...prevGoals, id];
+      }
+    });
+  };
+
+  const handleSaveAndNext = async () => {
+    if (selectedGoals.length === 0) return;
+
+    setIsLoading(true);
+
+    try {
+      // 1. Convertendo a array de IDs para uma array de Títulos
+      const selectedTitles = selectedGoals.map((id) => {
+        // Encontra o objeto completo do objetivo correspondente a este ID
+        const goalObject = GOALS.find((g) => g.id === id);
+        // Retorna apenas o título
+        return goalObject ? goalObject.title : "";
+      });
+
+      // ID fictício - substitua pelo ID real do usuário autenticado
+      const patientId = auth?.currentUser?.uid; // <-- Ajuste para pegar o ID do usuário logado
+
+      if (!patientId) {
+        Alert.alert("Erro", "Usuário não autenticado. Faça login novamente.");
+        setIsLoading(false);
+        return;
+      }
+
+      const patientRef = doc(db, "patients", patientId);
+
+      // 2. Salvando a nova array de Títulos no Firestore
+      await setDoc(
+        patientRef,
+        {
+          goals: selectedTitles, // Agora envia os títulos (ex: ["Melhora do Sono", "Mais Calma"])
+          updatedAt: new Date(),
+        },
+        { merge: true },
+      );
+
+      router.push("/(define-goals-2)");
+    } catch (error) {
+      console.error("Erro ao salvar no Firestore: ", error);
+      Alert.alert(
+        "Erro",
+        "Não foi possível salvar seus objetivos. Tente novamente.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isButtonDisabled = selectedGoals.length === 0 || isLoading;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* HEADER: Voltar e Progresso */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -77,35 +139,32 @@ export default function DefineGoalsScreen() {
           <Feather name="arrow-left" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={styles.progressText}>Passo 1 de 5</Text>
-        <View style={{ width: 40 }} />{" "}
-        {/* Espaçador para centralizar o texto */}
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* TÍTULOS */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Defina seu objetivo</Text>
           <Text style={styles.subtitle}>
-            Nossa inteligência artificial irá te auxiliar com algumas perguntas
-            para personalizar sua experiência médica.
+            Você pode escolher mais de uma opção. Nossa IA personalizará sua
+            experiência.
           </Text>
         </View>
 
         <Text style={styles.sectionHeader}>Objetivo Principal</Text>
 
-        {/* GRADE DE OPÇÕES (GRID) */}
         <View style={styles.grid}>
           {GOALS.map((goal) => {
-            const isSelected = selectedGoal === goal.id;
+            const isSelected = selectedGoals.includes(goal.id);
 
             return (
               <TouchableOpacity
                 key={goal.id}
                 activeOpacity={0.7}
-                onPress={() => setSelectedGoal(goal.id)}
+                onPress={() => toggleGoal(goal.id)}
                 style={[styles.card, isSelected && styles.cardSelected]}
               >
                 <View style={styles.cardHeader}>
@@ -145,18 +204,21 @@ export default function DefineGoalsScreen() {
         </View>
       </ScrollView>
 
-      {/* FOOTER FIXO: Botão Avançar */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={[
             styles.primaryButton,
-            !selectedGoal && styles.primaryButtonDisabled,
+            isButtonDisabled && styles.primaryButtonDisabled,
           ]}
           activeOpacity={0.8}
-          disabled={!selectedGoal}
-          onPress={() => router.push("/(define-goals-2)")}
+          disabled={isButtonDisabled}
+          onPress={handleSaveAndNext}
         >
-          <Text style={styles.primaryButtonText}>Avançar</Text>
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Avançar</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

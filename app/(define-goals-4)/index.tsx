@@ -1,4 +1,4 @@
-import React, { use, useState } from "react";
+import React from "react";
 import {
   StyleSheet,
   Text,
@@ -10,28 +10,77 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 
+// 1. Importações do Hook Form, Zod e Firebase
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { db, auth } from "@/firebaseConfig"; // Ajuste o caminho da sua config
+import { doc, setDoc } from "firebase/firestore";
+
 const GENDER_OPTIONS = [
   { id: "masculino", label: "Masculino", icon: "user" },
-  { id: "feminino", label: "Feminino", icon: "user" }, // Você pode trocar por ícones específicos se preferir
+  { id: "feminino", label: "Feminino", icon: "user" },
   { id: "outros", label: "Outros", icon: "users" },
 ];
 
+// 2. Schema de validação Zod
+const physicalInfoSchema = z.object({
+  height: z.string().min(1, "A altura é obrigatória"),
+  weight: z.string().min(1, "O peso é obrigatório"),
+  gender: z.string().min(1, "O sexo é obrigatório"),
+});
+
 export default function DefineGoalsScreenFour() {
-  const [height, setHeight] = useState("");
-  const [weight, setWeight] = useState("");
-  const [selectedGender, setSelectedGender] = useState(null);
-
   const router = useRouter();
+  const user = auth?.currentUser;
 
-  // Verifica se todos os campos foram preenchidos para liberar o botão Avançar
-  const isFormValid =
-    height.length > 0 && weight.length > 0 && selectedGender !== null;
+  // 3. Configuração do React Hook Form
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { isValid, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(physicalInfoSchema),
+    mode: "onChange", // Valida o form a cada digitação para liberar o botão de avançar
+    defaultValues: {
+      height: "",
+      weight: "",
+      gender: "",
+    },
+  });
+
+  // Observa a opção selecionada para trocar a cor do botão
+  const selectedGender = watch("gender");
+
+  // 4. Função para salvar no Firestore
+  const onSubmit = async (data) => {
+    if (!user?.uid) {
+      Alert.alert("Erro", "Usuário não autenticado.");
+      return;
+    }
+
+    try {
+      // Usando a mesma coleção "patients" do passo anterior
+      const patientRef = doc(db, "patients", user.uid);
+
+      // merge: true adiciona sem deletar a saúde mental (Passo 3) e o histórico (Passo 2)
+      await setDoc(patientRef, { physicalInfo: data }, { merge: true });
+
+      router.push("/(define-goals-5)");
+    } catch (error) {
+      console.error("Erro ao salvar informações físicas:", error);
+      Alert.alert("Erro", "Não foi possível salvar seus dados.");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,6 +96,7 @@ export default function DefineGoalsScreenFour() {
             <TouchableOpacity
               onPress={() => router.back()}
               style={styles.backButton}
+              disabled={isSubmitting}
             >
               <Feather name="arrow-left" size={24} color="#000000" />
             </TouchableOpacity>
@@ -57,6 +107,7 @@ export default function DefineGoalsScreenFour() {
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled" // Permite clicar na lista sem precisar fechar o teclado antes
           >
             {/* TÍTULOS */}
             <View style={styles.titleContainer}>
@@ -75,14 +126,20 @@ export default function DefineGoalsScreenFour() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Altura</Text>
                 <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="1,80"
-                    placeholderTextColor="#8E8E93"
-                    keyboardType="decimal-pad"
-                    value={height}
-                    onChangeText={setHeight}
-                    maxLength={4}
+                  <Controller
+                    control={control}
+                    name="height"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="1,80"
+                        placeholderTextColor="#8E8E93"
+                        keyboardType="decimal-pad"
+                        value={value}
+                        onChangeText={onChange}
+                        maxLength={4}
+                      />
+                    )}
                   />
                   <Text style={styles.unitText}>m</Text>
                 </View>
@@ -92,14 +149,20 @@ export default function DefineGoalsScreenFour() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Peso</Text>
                 <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="70"
-                    placeholderTextColor="#8E8E93"
-                    keyboardType="decimal-pad"
-                    value={weight}
-                    onChangeText={setWeight}
-                    maxLength={5}
+                  <Controller
+                    control={control}
+                    name="weight"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="70"
+                        placeholderTextColor="#8E8E93"
+                        keyboardType="decimal-pad"
+                        value={value}
+                        onChangeText={onChange}
+                        maxLength={5}
+                      />
+                    )}
                   />
                   <Text style={styles.unitText}>kg</Text>
                 </View>
@@ -117,7 +180,9 @@ export default function DefineGoalsScreenFour() {
                   <TouchableOpacity
                     key={option.id}
                     activeOpacity={0.7}
-                    onPress={() => setSelectedGender(option.id)}
+                    onPress={() =>
+                      setValue("gender", option.id, { shouldValidate: true })
+                    }
                     style={[
                       styles.genderRow,
                       !isLast && styles.genderRowSeparator,
@@ -154,26 +219,29 @@ export default function DefineGoalsScreenFour() {
             <TouchableOpacity
               style={styles.secondaryButton}
               activeOpacity={0.6}
+              onPress={() => router.back()}
+              disabled={isSubmitting}
             >
               <Text style={styles.secondaryButtonText}>Voltar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.push("/(define-goals-5)")}
+              onPress={handleSubmit(onSubmit)}
               style={[
                 styles.primaryButton,
-                !isFormValid && styles.primaryButtonDisabled,
+                (!isValid || isSubmitting) && styles.primaryButtonDisabled,
               ]}
               activeOpacity={0.8}
-              disabled={!isFormValid}
+              disabled={!isValid || isSubmitting}
             >
               <Text
                 style={[
                   styles.primaryButtonText,
-                  !isFormValid && styles.primaryButtonTextDisabled,
+                  (!isValid || isSubmitting) &&
+                    styles.primaryButtonTextDisabled,
                 ]}
               >
-                Avançar
+                {isSubmitting ? "Salvando..." : "Avançar"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -184,13 +252,8 @@ export default function DefineGoalsScreenFour() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  keyboardAvoid: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  keyboardAvoid: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -205,19 +268,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  progressText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#8E8E93",
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  titleContainer: {
-    marginTop: 16,
-    marginBottom: 32,
-  },
+  progressText: { fontSize: 15, fontWeight: "600", color: "#8E8E93" },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+  titleContainer: { marginTop: 16, marginBottom: 32 },
   title: {
     fontSize: 32,
     fontWeight: "800",
@@ -225,11 +278,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginBottom: 12,
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#3C3C43",
-    lineHeight: 22,
-  },
+  subtitle: { fontSize: 16, color: "#3C3C43", lineHeight: 22 },
   sectionHeader: {
     fontSize: 20,
     fontWeight: "700",
@@ -237,14 +286,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 8,
   },
-  rowInputs: {
-    flexDirection: "row",
-    gap: 16,
-    marginBottom: 24,
-  },
-  inputGroup: {
-    flex: 1,
-  },
+  rowInputs: { flexDirection: "row", gap: 16, marginBottom: 24 },
+  inputGroup: { flex: 1 },
   inputLabel: {
     fontSize: 15,
     fontWeight: "500",
@@ -260,12 +303,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 54,
   },
-  input: {
-    flex: 1,
-    height: "100%",
-    fontSize: 17,
-    color: "#000000",
-  },
+  input: { flex: 1, height: "100%", fontSize: 17, color: "#000000" },
   unitText: {
     fontSize: 17,
     color: "#8E8E93",
@@ -283,29 +321,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: "#FFFFFF", // Linhas brancas dentro do container cinza
+    backgroundColor: "#FFFFFF",
   },
-  genderRowSeparator: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  genderRowSelected: {
-    backgroundColor: "#F2FFF5", // Fica levemente verde quando selecionado
-  },
-  genderRowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  genderText: {
-    fontSize: 16,
-    color: "#000000",
-    fontWeight: "400",
-  },
-  genderTextSelected: {
-    color: "#1E7132",
-    fontWeight: "600",
-  },
+  genderRowSeparator: { borderBottomWidth: 1, borderBottomColor: "#F2F2F7" },
+  genderRowSelected: { backgroundColor: "#F2FFF5" },
+  genderRowLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  genderText: { fontSize: 16, color: "#000000", fontWeight: "400" },
+  genderTextSelected: { color: "#1E7132", fontWeight: "600" },
   footer: {
     flexDirection: "row",
     paddingHorizontal: 24,
@@ -327,17 +349,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryButtonDisabled: {
-    backgroundColor: "#E5E5EA",
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-    fontSize: 17,
-  },
-  primaryButtonTextDisabled: {
-    color: "#8E8E93",
-  },
+  primaryButtonDisabled: { backgroundColor: "#E5E5EA" },
+  primaryButtonText: { color: "#FFFFFF", fontWeight: "600", fontSize: 17 },
+  primaryButtonTextDisabled: { color: "#8E8E93" },
   secondaryButton: {
     flex: 1,
     backgroundColor: "#F2F2F7",
@@ -346,9 +360,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  secondaryButtonText: {
-    color: "#000000",
-    fontWeight: "600",
-    fontSize: 17,
-  },
+  secondaryButtonText: { color: "#000000", fontWeight: "600", fontSize: 17 },
 });

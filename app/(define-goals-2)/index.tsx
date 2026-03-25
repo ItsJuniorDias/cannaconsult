@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   StyleSheet,
   Text,
@@ -6,13 +6,32 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 
-// Lista de perguntas estruturada para facilitar a renderização
+// 1. Importações do Hook Form, Zod e Firebase
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { db, auth } from "@/firebaseConfig"; // Ajuste o caminho conforme seu projeto
+import { doc, setDoc } from "firebase/firestore";
+
+// 2. Definição do Schema com Zod
+const healthSchema = z.object({
+  tratamento: z.boolean().default(false),
+  doencaCronica: z.boolean().default(false),
+  psiquiatrico: z.boolean().default(false),
+  arritmia: z.boolean().default(false),
+  psicose: z.boolean().default(false),
+  dorCabeca: z.boolean().default(false),
+  jaUsou: z.boolean().default(false),
+  digestivo: z.boolean().default(false),
+});
+
 const HEALTH_QUESTIONS = [
   { id: "tratamento", label: "Atualmente faz algum tratamento?" },
   { id: "doencaCronica", label: "Possui alguma doença crônica?" },
@@ -25,33 +44,51 @@ const HEALTH_QUESTIONS = [
 ];
 
 export default function DefineGoalsScreenTwo() {
-  // Estado que guarda as respostas. Todas começam como 'false' (Não)
-  const [answers, setAnswers] = useState({
-    tratamento: false,
-    doencaCronica: false,
-    psiquiatrico: false,
-    arritmia: false,
-    psicose: false,
-    dorCabeca: false,
-    jaUsou: false,
-    digestivo: false,
+  const router = useRouter();
+  const user = auth?.currentUser?.uid;
+
+  // 3. Inicialização do React Hook Form
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm({
+    resolver: zodResolver(healthSchema),
+    defaultValues: {
+      tratamento: false,
+      doencaCronica: false,
+      psiquiatrico: false,
+      arritmia: false,
+      psicose: false,
+      dorCabeca: false,
+      jaUsou: false,
+      digestivo: false,
+    },
   });
 
-  const router = useRouter();
+  // 4. Função de salvamento no Firestore
+  const onSubmit = async (data) => {
+    if (!user) {
+      Alert.alert("Erro", "Usuário não autenticado.");
+      return;
+    }
 
-  // Função para alternar o valor de uma pergunta específica
-  const toggleSwitch = (id) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    try {
+      // "merge: true" para não apagar dados de outros passos (Step 1, etc)
+      const userRef = doc(db, "patients", user);
+      await setDoc(userRef, { healthHistory: data }, { merge: true });
+
+      router.push("/(define-goals-3)");
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      Alert.alert("Erro", "Não foi possível salvar seus dados.");
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* HEADER: Voltar e Progresso */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -60,74 +97,80 @@ export default function DefineGoalsScreenTwo() {
           <Feather name="arrow-left" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={styles.progressText}>Passo 2 de 5</Text>
-        <View style={{ width: 40 }} /> {/* Espaçador para centralizar */}
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* TÍTULOS */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Defina seu objetivo</Text>
           <Text style={styles.subtitle}>
-            Nossa inteligência artificial irá te auxiliar com algumas perguntas
-            para personalizar sua experiência médica.
+            Nossa inteligência artificial irá te auxiliar para personalizar sua
+            experiência médica.
           </Text>
         </View>
 
         <Text style={styles.sectionHeader}>Histórico de Saúde</Text>
 
-        {/* LISTA DE PERGUNTAS ESTILO iOS SETTINGS */}
         <View style={styles.listContainer}>
-          {HEALTH_QUESTIONS.map((item, index) => {
-            const isLast = index === HEALTH_QUESTIONS.length - 1;
-            const isTrue = answers[item.id];
-
-            return (
-              <View
-                key={item.id}
-                style={[styles.row, !isLast && styles.rowSeparator]}
-              >
-                <Text style={styles.questionText}>{item.label}</Text>
-
-                <View style={styles.switchWrapper}>
-                  {/* Texto auxiliar "Sim/Não" sutil, comum em apps de saúde */}
-                  <Text
-                    style={[
-                      styles.statusText,
-                      isTrue && styles.statusTextActive,
-                    ]}
-                  >
-                    {isTrue ? "Sim" : "Não"}
-                  </Text>
-
-                  <Switch
-                    trackColor={{ false: "#E5E5EA", true: "#34C759" }}
-                    thumbColor="#FFFFFF"
-                    ios_backgroundColor="#E5E5EA"
-                    onValueChange={() => toggleSwitch(item.id)}
-                    value={isTrue}
-                  />
+          {HEALTH_QUESTIONS.map((item, index) => (
+            // 5. Uso do Controller para cada Switch
+            <Controller
+              key={item.id}
+              control={control}
+              name={item.id}
+              render={({ field: { onChange, value } }) => (
+                <View
+                  style={[
+                    styles.row,
+                    index !== HEALTH_QUESTIONS.length - 1 &&
+                      styles.rowSeparator,
+                  ]}
+                >
+                  <Text style={styles.questionText}>{item.label}</Text>
+                  <View style={styles.switchWrapper}>
+                    <Text
+                      style={[
+                        styles.statusText,
+                        value && styles.statusTextActive,
+                      ]}
+                    >
+                      {value ? "Sim" : "Não"}
+                    </Text>
+                    <Switch
+                      trackColor={{ false: "#E5E5EA", true: "#34C759" }}
+                      thumbColor="#FFFFFF"
+                      ios_backgroundColor="#E5E5EA"
+                      onValueChange={onChange}
+                      value={value}
+                    />
+                  </View>
                 </View>
-              </View>
-            );
-          })}
+              )}
+            />
+          ))}
         </View>
       </ScrollView>
 
-      {/* FOOTER FIXO: Voltar e Avançar */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.6}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => router.back()}
+          disabled={isSubmitting}
+        >
           <Text style={styles.secondaryButtonText}>Voltar</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => router.push("/(define-goals-3)")}
-          style={styles.primaryButton}
-          activeOpacity={0.8}
+          onPress={handleSubmit(onSubmit)} // 6. Gatilho de submissão
+          style={[styles.primaryButton, isSubmitting && { opacity: 0.7 }]}
+          disabled={isSubmitting}
         >
-          <Text style={styles.primaryButtonText}>Avançar</Text>
+          <Text style={styles.primaryButtonText}>
+            {isSubmitting ? "Salvando..." : "Avançar"}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

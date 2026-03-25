@@ -16,35 +16,29 @@ export default function AreaDoctorScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Card de Boas-vindas */}
-        <View style={styles.card}>
-          <Text style={styles.greeting}>Olá, Dr. Carlos Mendes</Text>
+        {/* Header - Estilo iOS Large Title */}
+        <View style={styles.header}>
+          <Text style={styles.greeting}>Olá, Dr. Carlos</Text>
           <Text style={styles.subtitle}>
             Bom plantão! Aqui está o seu resumo de hoje.
           </Text>
         </View>
 
         {/* Card de Alerta / Tarefas Pendentes */}
-        <TouchableOpacity
-          style={[styles.card, styles.alertCard]}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.card} activeOpacity={0.7}>
           <View style={styles.alertContent}>
-            <View style={styles.alertIconContainer}>
-              <Text style={styles.alertIcon}>✍️</Text>
+            <View style={styles.iconContainer}>
+              <Text style={styles.iconEmoji}>✍️</Text>
             </View>
             <View style={styles.alertTextContainer}>
-              <Text style={styles.alertTitle}>Assinaturas Pendentes</Text>
+              <Text style={styles.cardTitle}>Assinaturas Pendentes</Text>
               <Text style={styles.alertBody}>
-                Você possui 3 receitas aguardando assinatura digital para
-                liberação aos pacientes.
+                3 receitas aguardam sua assinatura digital.
               </Text>
               <TouchableOpacity
                 onPress={() => router.push("/(signatures-pending)")}
               >
-                <Text style={styles.alertAction}>
-                  Revisar e assinar agora ➔
-                </Text>
+                <Text style={styles.linkAction}>Revisar e assinar ➔</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -55,48 +49,55 @@ export default function AreaDoctorScreen() {
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Próximo Atendimento</Text>
             <TouchableOpacity>
-              <Text style={styles.cardAction}>Ver Agenda Completa</Text>
+              <Text style={styles.linkAction}>Ver Agenda</Text>
             </TouchableOpacity>
           </View>
 
           {/* Estado do Paciente Agendado */}
-          <View style={styles.appointmentContainer}>
-            <View style={styles.appointmentInfo}>
-              <View style={styles.patientAvatar}>
-                <Text style={styles.patientAvatarText}>AD</Text>
-              </View>
-              <View style={styles.patientDetails}>
-                <Text style={styles.patientName}>Alexandre de P. Dias Jr.</Text>
-                <Text style={styles.patientStatus}>🟢 Aguardando na sala</Text>
+          <View style={styles.patientRow}>
+            <View style={styles.patientAvatar}>
+              <Text style={styles.patientAvatarText}>AD</Text>
+            </View>
+            <View style={styles.patientDetails}>
+              <Text style={styles.patientName}>Alexandre de P. Dias Jr.</Text>
+              <View style={styles.statusBadge}>
+                <View style={styles.statusDot} />
+                <Text style={styles.patientStatus}>Aguardando na sala</Text>
               </View>
             </View>
-
-            <View style={styles.appointmentTimeContainer}>
-              <Text style={styles.appointmentDate}>Hoje, 24 de Março</Text>
-              <Text style={styles.appointmentTime}>14:30</Text>
-            </View>
-
-            {/* CTA para iniciar Ato Médico (Vídeo Chamada) */}
-            <TouchableOpacity
-              onPress={() => router.push("/(video-call)")}
-              style={styles.videoButton}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.videoButtonIcon}>📹</Text>
-              <Text style={styles.videoButtonText}>
-                Iniciar Videoconferência
-              </Text>
-            </TouchableOpacity>
           </View>
 
-          {/* Ações de Agendamento do Médico */}
+          <View style={styles.appointmentTimeContainer}>
+            <Text style={styles.appointmentDate}>Hoje, 24 de Março</Text>
+            <Text style={styles.appointmentTime}>14:30</Text>
+          </View>
+
+          {/* CTA Principal */}
+          <TouchableOpacity
+            onPress={() => router.push("/(video-call)")}
+            style={styles.primaryButton}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.primaryButtonIcon}>📹</Text>
+            <Text style={styles.primaryButtonText}>
+              Iniciar Videoconferência
+            </Text>
+          </TouchableOpacity>
+
+          {/* Ações Secundárias */}
           <View style={styles.actionButtonsRow}>
-            <TouchableOpacity style={styles.scheduleButton} activeOpacity={0.8}>
-              <Text style={styles.scheduleButtonText}>+ Agendar Retorno</Text>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.secondaryButtonText}>Agendar Retorno</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.manageButton} activeOpacity={0.8}>
-              <Text style={styles.manageButtonText}>Gerenciar Horários</Text>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.secondaryButtonText}>Gerenciar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -106,14 +107,11 @@ export default function AreaDoctorScreen() {
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Últimos Pacientes</Text>
             <TouchableOpacity>
-              <Text style={styles.cardAction}>Buscar</Text>
+              <Text style={styles.linkAction}>Buscar</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.emptyStateContainer}>
-            <View style={styles.emptyStateIcon}>
-              <Text style={styles.emptyStateIconText}>i</Text>
-            </View>
             <Text style={styles.emptyStateText}>
               Nenhum paciente atendido hoje ainda.
             </Text>
@@ -127,117 +125,95 @@ export default function AreaDoctorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F4F6F8",
+    backgroundColor: "#F2F2F7", // Fundo padrão do iOS (System Gray 6)
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingTop: 16,
     paddingBottom: 40,
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
+  header: {
+    marginBottom: 24,
+    paddingHorizontal: 8,
   },
   greeting: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1A202C",
-    marginBottom: 6,
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#000000",
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: 15,
-    color: "#718096",
+    color: "#8E8E93", // System Gray do iOS
   },
-  alertCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#ED8936", // Laranja para indicar uma tarefa pendente do médico
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16, // Bordas mais arredondadas (Squircle)
+    padding: 16,
+    marginBottom: 16,
   },
   alertContent: {
     flexDirection: "row",
+    alignItems: "center",
   },
-  alertIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFFAF0",
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(52, 199, 89, 0.1)", // Verde translúcido
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
   },
-  alertIcon: {
-    fontSize: 20,
+  iconEmoji: {
+    fontSize: 22,
   },
   alertTextContainer: {
     flex: 1,
-  },
-  alertTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#DD6B20",
-    marginBottom: 6,
-  },
-  alertBody: {
-    fontSize: 14,
-    color: "#4A5568",
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  alertAction: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#DD6B20",
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2D3748",
-  },
-  cardAction: {
-    fontSize: 14,
-    color: "#3182CE",
+    fontSize: 17,
     fontWeight: "600",
+    color: "#000000",
+  },
+  alertBody: {
+    fontSize: 14,
+    color: "#8E8E93",
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  linkAction: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#34C759", // Verde Apple
   },
 
-  // --- Estilos de Consultas (Visão do Médico) ---
-  appointmentContainer: {
-    backgroundColor: "#F7FAFC",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  appointmentInfo: {
+  // --- Paciente ---
+  patientRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },
   patientAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#BEE3F8", // Azul claro para pacientes
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#F2F2F7",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
   patientAvatarText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#2B6CB0",
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#8E8E93",
   },
   patientDetails: {
     flex: 1,
@@ -245,110 +221,96 @@ const styles = StyleSheet.create({
   patientName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#2D3748",
-    marginBottom: 2,
+    color: "#000000",
+    marginBottom: 4,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#34C759", // Verde indicando "online"
+    marginRight: 6,
   },
   patientStatus: {
     fontSize: 13,
-    color: "#38A169", // Verde indicando que o paciente já está online/na sala
+    color: "#8E8E93",
     fontWeight: "500",
   },
+
+  // --- Data e Hora ---
   appointmentTimeContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#EDF2F7",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    backgroundColor: "#F2F2F7",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     marginBottom: 16,
   },
   appointmentDate: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "500",
-    color: "#4A5568",
+    color: "#000000",
   },
   appointmentTime: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#2B6CB0",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#000000",
   },
-  videoButton: {
-    backgroundColor: "#3182CE", // Azul para a ação principal do médico
+
+  // --- Botão Principal ---
+  primaryButton: {
+    backgroundColor: "#34C759", // Verde Apple
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 14,
-    borderRadius: 10,
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginBottom: 12,
   },
-  videoButtonIcon: {
+  primaryButtonIcon: {
     marginRight: 8,
-    fontSize: 16,
+    fontSize: 18,
   },
-  videoButtonText: {
+  primaryButtonText: {
     color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "600",
   },
 
-  // --- Botões de Ação Secundários ---
+  // --- Botões Secundários ---
   actionButtonsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
   },
-  scheduleButton: {
+  secondaryButton: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    backgroundColor: "#FFFFFF",
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "#F2F2F7",
   },
-  scheduleButtonText: {
-    color: "#4A5568",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  manageButton: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: "#EDF2F7",
-  },
-  manageButtonText: {
-    color: "#4A5568",
-    fontSize: 14,
-    fontWeight: "600",
+  secondaryButtonText: {
+    color: "#000000",
+    fontSize: 15,
+    fontWeight: "500",
   },
 
-  // --- Estilos de Empty State ---
+  // --- Empty State ---
   emptyStateContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-  },
-  emptyStateIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#EDF2F7",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  emptyStateIconText: {
-    color: "#A0AEC0",
-    fontSize: 18,
-    fontWeight: "bold",
-    fontStyle: "italic",
+    paddingVertical: 24,
   },
   emptyStateText: {
-    fontSize: 14,
-    color: "#718096",
+    fontSize: 15,
+    color: "#8E8E93",
   },
 });
