@@ -23,6 +23,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.cannaconsult"
     },
+    "splash": null,
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
@@ -30,15 +31,15 @@
     "plugins": [
       "expo-router",
       [
-        "expo-splash-screen",
+        "expo-camera",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "cameraPermission": "Permitir que o aplicativo acesse sua câmera para as videoconsultas."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Permitir que o aplicativo acesse seu microfone para as videoconsultas."
         }
       ]
     ],

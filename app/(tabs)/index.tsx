@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 8,
   },
-  userBubble: { alignSelf: "flex-end", backgroundColor: "#34C759" },
+  userBubble: { alignSelf: "flex-end", backgroundColor: "9#34C75" },
   modelBubble: { alignSelf: "flex-start", backgroundColor: "#2C2C2E" },
   messageText: { fontSize: 16, lineHeight: 22, letterSpacing: -0.3 },
   userText: { color: "#FFFFFF" },

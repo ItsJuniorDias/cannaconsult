@@ -7,6 +7,8 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
+import { AppNavigation } from "./(area-patient)/_layout";
+
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
@@ -27,7 +29,7 @@ export default function RootLayout() {
         />
 
         <Stack.Screen
-          name="(area-patient)/index"
+          name="(area-physician)/index"
           options={{ headerShown: false }}
         />
 
@@ -70,6 +72,11 @@ export default function RootLayout() {
         />
 
         <Stack.Screen name="(payment)/index" options={{ headerShown: false }} />
+
+        <Stack.Screen
+          name="(video-call)/index"
+          options={{ headerShown: false }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
