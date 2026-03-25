@@ -39,6 +39,10 @@ export default function RootLayout() {
         />
 
         <Stack.Screen name="(login)/index" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="(medical-login)/index"
+          options={{ headerShown: false }}
+        />
 
         <Stack.Screen
           name="(create-account)/index"
@@ -75,6 +79,11 @@ export default function RootLayout() {
 
         <Stack.Screen
           name="(video-call)/index"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="(signatures-pending)/index"
           options={{ headerShown: false }}
         />
       </Stack>

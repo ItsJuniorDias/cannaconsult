@@ -99,7 +99,10 @@ export default function PaymentScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Feather name="arrow-left" size={24} color="#000000" />
         </TouchableOpacity>
       </View>

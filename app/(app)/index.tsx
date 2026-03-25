@@ -66,7 +66,7 @@ export default function OnboardingScreen() {
           <TouchableOpacity
             style={styles.secondaryButton}
             activeOpacity={0.6}
-            onPress={() => router.push("/(area-physician)")}
+            onPress={() => router.push("/(medical-login)")}
           >
             <Text style={styles.secondaryButtonText}>Área do Medico</Text>
           </TouchableOpacity>

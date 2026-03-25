@@ -46,7 +46,10 @@ export default function DefineGoalsScreenThree() {
 
       {/* HEADER: Voltar e Progresso */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Feather name="arrow-left" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={styles.progressText}>Passo 3 de 5</Text>

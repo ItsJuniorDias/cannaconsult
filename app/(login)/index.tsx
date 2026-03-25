@@ -34,7 +34,10 @@ export default function LoginScreen() {
           {/* HEADER */}
           <View style={styles.header}>
             {/* Botão de voltar sutil */}
-            <TouchableOpacity style={styles.backButton}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
               <Feather name="arrow-left" size={24} color="#000000" />
             </TouchableOpacity>
 

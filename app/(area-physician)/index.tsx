@@ -39,7 +39,13 @@ export default function AreaDoctorScreen() {
                 Você possui 3 receitas aguardando assinatura digital para
                 liberação aos pacientes.
               </Text>
-              <Text style={styles.alertAction}>Revisar e assinar agora ➔</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/(signatures-pending)")}
+              >
+                <Text style={styles.alertAction}>
+                  Revisar e assinar agora ➔
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </TouchableOpacity>
