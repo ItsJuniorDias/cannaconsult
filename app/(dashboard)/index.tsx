@@ -7,8 +7,35 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from "react-native";
-import { Feather } from "@expo/vector-icons"; // Certifique-se de ter o expo-icons ou similar
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+
+// --- Dados Mockados item derivados da maconha ---
+const mockReceitas = [
+  {
+    id: "1",
+    medicamento: "20g de Cannabis Sativa",
+    data: "24 Mar 2026",
+    medico: "Dr. Carlos Silva",
+  },
+  {
+    id: "2",
+    medicamento: "10g de Cannabis Indica",
+    data: "10 Fev 2026",
+    medico: "Dra. Ana Paula",
+  },
+];
+
+const mockConsultas = [
+  {
+    id: "1",
+    especialidade: "Clínico Geral",
+    data: "26 Mar 2026",
+    horario: "14:30",
+    medico: "Dr. Roberto Costa",
+    status: "Confirmada",
+  },
+];
 
 export default function Dashboard() {
   const router = useRouter();
@@ -45,17 +72,50 @@ export default function Dashboard() {
           <View style={styles.mainCard}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Minhas Receitas</Text>
-
               <TouchableOpacity onPress={() => router.push("/(my-revenues)")}>
                 <Text style={styles.seeMore}>Ver todas</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.emptyState}>
-              <View style={styles.infoCircle}>
-                <Feather name="info" size={20} color="#8E8E93" />
+
+            {mockReceitas.length > 0 ? (
+              <View style={styles.listContainer}>
+                {mockReceitas.map((item, index) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.listItem,
+                      index === mockReceitas.length - 1 && styles.lastListItem,
+                    ]}
+                    activeOpacity={0.6}
+                  >
+                    <View
+                      style={[
+                        styles.itemIcon,
+                        { backgroundColor: "rgba(52, 199, 94, 0.1)" },
+                      ]}
+                    >
+                      <Feather name="file-text" size={20} color="#34C75E" />
+                    </View>
+                    <View style={styles.itemContent}>
+                      <Text style={styles.itemTitle}>{item.medicamento}</Text>
+                      <Text style={styles.itemSubtitle}>
+                        {item.medico} • {item.data}
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color="#C7C7CC" />
+                  </TouchableOpacity>
+                ))}
               </View>
-              <Text style={styles.emptyText}>Nenhuma receita encontrada.</Text>
-            </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <View style={styles.infoCircle}>
+                  <Feather name="info" size={20} color="#8E8E93" />
+                </View>
+                <Text style={styles.emptyText}>
+                  Nenhuma receita encontrada.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Consultas Card */}
@@ -68,12 +128,46 @@ export default function Dashboard() {
                 <Text style={styles.seeMore}>Ver todas</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.emptyState}>
-              <View style={styles.infoCircle}>
-                <Feather name="calendar" size={20} color="#8E8E93" />
+
+            {mockConsultas.length > 0 ? (
+              <View style={styles.listContainer}>
+                {mockConsultas.map((item, index) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.listItem,
+                      index === mockConsultas.length - 1 && styles.lastListItem,
+                    ]}
+                    activeOpacity={0.6}
+                  >
+                    <View
+                      style={[
+                        styles.itemIcon,
+                        { backgroundColor: "rgba(0, 122, 255, 0.1)" },
+                      ]}
+                    >
+                      <Feather name="calendar" size={20} color="#007AFF" />
+                    </View>
+                    <View style={styles.itemContent}>
+                      <Text style={styles.itemTitle}>{item.especialidade}</Text>
+                      <Text style={styles.itemSubtitle}>
+                        {item.data} às {item.horario}
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color="#C7C7CC" />
+                  </TouchableOpacity>
+                ))}
               </View>
-              <Text style={styles.emptyText}>Nenhuma consulta encontrada.</Text>
-            </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <View style={styles.infoCircle}>
+                  <Feather name="calendar" size={20} color="#8E8E93" />
+                </View>
+                <Text style={styles.emptyText}>
+                  Nenhuma consulta encontrada.
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -111,7 +205,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 24,
-    // Sombra suave estilo Apple
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -166,7 +259,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 15,
   },
   cardTitle: {
     fontSize: 18,
@@ -178,6 +271,42 @@ const styles = StyleSheet.create({
     color: "#34C75E",
     fontWeight: "600",
   },
+  // --- Novos Estilos para as Listas ---
+  listContainer: {
+    flex: 1,
+  },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E5E5EA",
+  },
+  lastListItem: {
+    borderBottomWidth: 0,
+  },
+  itemIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    marginBottom: 4,
+  },
+  itemSubtitle: {
+    fontSize: 14,
+    color: "#8E8E93",
+  },
+  // -----------------------------------
   emptyState: {
     flex: 1,
     justifyContent: "center",

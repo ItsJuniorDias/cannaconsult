@@ -104,6 +104,11 @@ export default function RootLayout() {
           name="(my-consultations)/index"
           options={{ headerShown: false }}
         />
+
+        <Stack.Screen
+          name="(schedule)/index"
+          options={{ headerShown: false }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
