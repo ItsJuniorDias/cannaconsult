@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Modal,
+  Image,
 } from "react-native";
 import ReactNativeBiometrics from "react-native-biometrics";
 
@@ -37,16 +38,18 @@ const pendingDocuments: Document[] = [
     patient: "Alexandre de P. Dias Jr.",
     type: "Receita de Controle Especial",
     date: "Hoje, 14:30",
+    //receita de flores e extrato
     mockContent:
-      "USO ORAL\n\n1. Clonazepam 2mg ------ 1 caixa\nTomar 1 comprimido à noite.\n\n2. Escitalopram 10mg ------ 1 caixa\nTomar 1 comprimido pela manhã.\n\n_______________________\nTratamento contínuo.",
+      "Receita Médica\n\nPaciente: Alexandre de P. Dias Jr.\nData de Nascimento: 01/01/1990\nCPF: 449.556.578-85\nEndereço: Rua Exemplo, 123, São Paulo, SP\n\nPrescrição:\n- Flores de Cannabis Sativa (20g)\n- Extrato de Cannabis (10ml)\n\nDosagem:\n- Flores: 1g por dia, preferencialmente à noite\n- Extrato: 0,5ml por dia, dividido em duas doses\n\nValidade: 30 dias a partir da data de emissão",
   },
   {
     id: "2",
     patient: "Mariana Silva Costa",
-    type: "Pedido de Exames",
+    type: "Receita de Controle Especial",
     date: "Hoje, 11:15",
+    //receita de flores e extrato
     mockContent:
-      "SOLICITAÇÃO DE EXAMES\n\n1. Hemograma Completo\n2. Glicemia de Jejum\n3. Colesterol Total e Frações\n\nJustificativa: Check-up anual.",
+      "Receita Médica\n\nPaciente: Mariana Silva Costa\nData de Nascimento: 15/05/1985\nCPF: 321.654.987-00\nEndereço: Avenida Exemplo, 456, Rio de Janeiro, RJ\n\nPrescrição:\n- Flores de Cannabis Indica (30g)\n- Extrato de Cannabis (15ml)\n\nDosagem:\n- Flores: 1,5g por dia, preferencialmente à noite\n- Extrato: 0,75ml por dia, dividido em duas doses\n\nValidade: 30 dias a partir da data de emissão",
   },
 ];
 
@@ -133,77 +136,155 @@ export default function SignaturesPendingScreen() {
   };
 
   // --- GERAR E BAIXAR PDF ---
-  const handleDownloadPDF = async () => {
-    if (!viewingDoc) return;
 
-    try {
-      const htmlContent = `
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-            <style>
-              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #333; }
-              .header { text-align: center; margin-bottom: 40px; }
-              .clinic-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-              .doc-type { font-size: 14px; color: #666; letter-spacing: 1px; text-transform: uppercase; }
-              .divider { border-bottom: 1px solid #E5E5EA; margin: 20px 0; }
-              .content { white-space: pre-wrap; font-size: 16px; line-height: 1.6; }
-              .signature-box { 
-                margin-top: 80px; 
-                padding: 20px; 
-                border: 2px solid #34C759; 
-                border-radius: 8px; 
-                background-color: #f0fdf4; 
-                color: #15803d;
-                text-align: center;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="clinic-name">CLÍNICA MÉDICA EXEMPLO</div>
-              <div class="doc-type">${viewingDoc.type}</div>
+  const handleDownloadPDF = (logoUri: string, qrCodeUri: string) => {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body { 
+              padding: 32px; 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+              background-color: #FFFFFF;
+              display: flex;
+              flex-direction: column;
+              min-height: 95vh;
+            }
+            .header {
+              display: flex;
+              align-items: center;
+              margin-bottom: 32px;
+            }
+            .logo {
+              width: 80px;
+              height: 80px;
+              border-radius: 16px;
+              object-fit: cover;
+              margin-right: 24px;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            }
+            .patient-info {
+              flex: 1;
+              color: #1C1C1E;
+            }
+            .patient-info p {
+              margin: 4px 0;
+              font-size: 14px;
+              line-height: 1.4;
+            }
+            .patient-info strong {
+              font-weight: 600;
+              color: #8E8E93;
+              margin-right: 4px;
+            }
+            .divider {
+              border: 0;
+              border-bottom: 1px solid #E5E5EA;
+              margin-bottom: 32px;
+              width: 100%;
+            }
+            .chat-container { 
+              flex: 1;
+              display: flex; 
+              flex-direction: column; 
+            }
+            
+            /* --- NOVOS ESTILOS DA ASSINATURA E QR CODE --- */
+            .signature-block {
+              margin-top: 60px;
+              display: flex; 
+              align-items: center; 
+              justify-content: flex-end; 
+              page-break-inside: avoid;
+            }
+            
+            /* Estilo atualizado baseado no primeiro código (verde com borda) */
+            .signature-box { 
+              padding: 20px; 
+              border: 2px solid #34C759; 
+              border-radius: 12px; 
+              background-color: #f0fdf4; 
+              color: #15803d;
+              text-align: center;
+              max-width: 60%; /* Mantém o layout de coluna ao lado do QR */
+            }
+            
+            .signature-box h3 {
+               margin: 0 0 10px 0;
+               font-size: 16px;
+            }
+            
+            .signature-box p {
+               margin: 4px 0;
+               font-size: 14px;
+            }
+            
+            .signature-box .doctor-name {
+                font-size: 18px;
+                font-weight: bold;
+            }
+            
+            .signature-box .validation-text {
+                font-size: 12px;
+                color: #166534;
+                margin-top: 8px;
+            }
+
+            .qr-code-container {
+              width: 120px;
+              height: 120px;
+              margin-left: 24px; 
+              background-color: #FFFFFF;
+              padding: 12px;
+              border-radius: 16px;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-code {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+            }
+
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="${logoUri}" class="logo" alt="Logo" />
+            <div class="patient-info">
+              <p><strong>Nome:</strong> Alexandre Junior</p>
+              <p><strong>CPF:</strong> 44955657885</p>
+              <p><strong>E-mail:</strong> alexandre.junior@example.com</p>
+              <p><strong>Data de Nasc.:</strong> 01/01/1990</p>
+              <p><strong>Endereço:</strong> Rua Exemplo, 123, São Paulo, SP</p>
             </div>
-            
-            <p><strong>Paciente:</strong> ${viewingDoc.patient}</p>
-            <p><strong>Data:</strong> ${viewingDoc.date}</p>
-            
-            <div class="divider"></div>
-            
-            <div class="content">${viewingDoc.mockContent}</div>
-            
+          </div>
+          
+          <hr class="divider" />
+
+      
+
+          <div class="signature-block">
             <div class="signature-box">
-              <h3 style="margin: 0 0 10px 0;">✓ Documento Assinado Digitalmente</h3>
-              <p style="margin: 4px 0; font-size: 18px;"><strong>${currentLoggedDoctor.name}</strong></p>
-              <p style="margin: 4px 0;">CRM: ${currentLoggedDoctor.crm}</p>
-              <p style="margin: 4px 0; font-size: 12px; color: #166534;">Validado via Biometria do Dispositivo</p>
-              <p style="margin: 4px 0; font-size: 12px; color: #166534;">Data/Hora: ${new Date().toLocaleString()}</p>
+              <h3>✓ Documento Assinado Digitalmente</h3>
+              <p class="doctor-name">Murilo Alves Navarro</p>
+              <p>CRM/SP 177992 - Especialidade: Cannabis</p>
+              <p class="validation-text">Validado via Biometria do Dispositivo</p>
+              <p class="validation-text">Emissão: ${new Date().toLocaleString("pt-BR")}</p>
             </div>
-          </body>
-        </html>
-      `;
+            
+            <div class="qr-code-container">
+              <img src="${qrCodeUri}" class="qr-code" alt="QR Code Estático" />
+            </div>
+          </div>
 
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        base64: false,
-      });
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "Salvar ou Compartilhar Documento",
-          UTI: "com.adobe.pdf",
-        });
-      } else {
-        Alert.alert(
-          "Aviso",
-          "O compartilhamento não está disponível neste dispositivo.",
-        );
-      }
-    } catch (error) {
-      console.error("Erro ao gerar PDF:", error);
-      Alert.alert("Erro", "Não foi possível gerar o arquivo PDF.");
-    }
+        </body>
+      </html>
+    `;
   };
 
   return (
@@ -229,6 +310,7 @@ export default function SignaturesPendingScreen() {
             {pendingDocuments.map((doc, index) => {
               const isSelected = selectedIds.includes(doc.id);
               const isLastItem = index === pendingDocuments.length - 1;
+
               return (
                 <View
                   key={doc.id}
@@ -306,11 +388,23 @@ export default function SignaturesPendingScreen() {
             style={styles.pdfBackground}
             contentContainerStyle={styles.pdfPaper}
           >
+            {/* CABEÇALHO COM LOGO E NOME DA CLÍNICA */}
             <View style={styles.pdfHeader}>
-              <Text style={styles.pdfClinicName}>CLÍNICA MÉDICA EXEMPLO</Text>
-              <Text style={styles.pdfDocType}>
-                {viewingDoc?.type.toUpperCase()}
+              <Image
+                source={require("../../assets/images/icon.png")}
+                style={styles.pdfLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.pdfClinicName}>CANNA CONSULT</Text>
+              <Text style={styles.pdfClinicSub}>
+                Especialistas em Medicina Canabinoide
               </Text>
+
+              <View style={styles.pdfDocTypeContainer}>
+                <Text style={styles.pdfDocType}>
+                  {viewingDoc?.type.toUpperCase()}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.pdfBody}>
@@ -318,7 +412,8 @@ export default function SignaturesPendingScreen() {
                 Paciente: <Text style={styles.bold}>{viewingDoc?.patient}</Text>
               </Text>
               <Text style={styles.pdfPatientInfo}>
-                Data: {viewingDoc?.date}
+                Data de Emissão:{" "}
+                <Text style={styles.bold}>{viewingDoc?.date}</Text>
               </Text>
 
               <View style={styles.pdfDivider} />
@@ -373,7 +468,33 @@ export default function SignaturesPendingScreen() {
             ) : (
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: "#007AFF" }]}
-                onPress={handleDownloadPDF}
+                onPress={async () => {
+                  const iconAsset = Image.resolveAssetSource(
+                    require("../../assets/images/icon.png"),
+                  );
+                  const logoUri = iconAsset ? iconAsset.uri : "";
+
+                  const qrCodeAsset = Image.resolveAssetSource(
+                    require("../../assets/images/qrcode.png"),
+                  );
+                  const qrCodeUri = qrCodeAsset ? qrCodeAsset.uri : "";
+
+                  const htmlContent = handleDownloadPDF(logoUri, qrCodeUri);
+
+                  const { uri } = await Print.printToFileAsync({
+                    html: htmlContent,
+                    base64: false,
+                  });
+
+                  const isSharingAvailable = await Sharing.isAvailableAsync();
+                  if (isSharingAvailable) {
+                    await Sharing.shareAsync(uri, {
+                      mimeType: "application/pdf",
+                      dialogTitle: "Baixar Documento Médico",
+                      UTI: "com.adobe.pdf",
+                    });
+                  }
+                }}
               >
                 <Text style={styles.primaryButtonText}>
                   Baixar / Compartilhar PDF
@@ -481,14 +602,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
   },
-  pdfHeader: { alignItems: "center", marginBottom: 32 },
-  pdfClinicName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  pdfDocType: { fontSize: 14, color: "#666", letterSpacing: 1 },
+
   pdfBody: { flex: 1 },
   pdfPatientInfo: { fontSize: 14, color: "#333", marginBottom: 4 },
   bold: { fontWeight: "bold" },
@@ -541,5 +655,42 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? 34 : 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#C6C6C8",
+  },
+
+  // --- CABEÇALHO DO PDF ---
+  pdfHeader: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  pdfLogo: {
+    width: 70,
+    height: 70,
+    marginBottom: 12,
+    borderRadius: 16, // Deixa a logo arredondada (estilo Apple)
+  },
+  pdfClinicName: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#1C1C1E",
+    marginBottom: 2,
+    letterSpacing: 0.5,
+  },
+  pdfClinicSub: {
+    fontSize: 13,
+    color: "#6E6E73",
+    marginBottom: 16,
+    fontStyle: "italic",
+  },
+  pdfDocTypeContainer: {
+    backgroundColor: "rgba(52, 199, 89, 0.1)", // Um verde bem clarinho de fundo
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  pdfDocType: {
+    fontSize: 13,
+    color: "#15803d", // Verde mais escuro para combinar com o tema Canna
+    fontWeight: "700",
+    letterSpacing: 1,
   },
 });
