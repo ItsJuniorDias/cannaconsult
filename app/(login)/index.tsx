@@ -26,6 +26,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebaseConfig";
 
+// Importação do AsyncStorage
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 // 1. Definição do Schema de Validação com Zod
 const loginSchema = z.object({
   email: z
@@ -57,15 +60,24 @@ export default function LoginScreen() {
     },
   });
 
-  // 3. Função de submissão com Firebase Auth
+  // 3. Função de submissão com Firebase Auth e Redirecionamento Condicional
   const onSubmit = async (data: LoginData) => {
     Keyboard.dismiss();
     setIsLoading(true);
 
     try {
+      // 1. Faz o login no Firebase
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      // Login bem sucedido! Navega para a próxima tela
-      router.push("/(define-goals)");
+
+      // 2. Verifica no AsyncStorage se o usuário já fez a consulta/definiu os objetivos
+      const hasConsultation = await AsyncStorage.getItem("@has_consultation");
+
+      // 3. Redirecionamento condicional baseado na flag
+      if (hasConsultation === "true") {
+        router.replace("/(dashboard)"); // Usando replace para não conseguir voltar pro login pelo botão de voltar do celular
+      } else {
+        router.replace("/(define-goals)");
+      }
     } catch (error: any) {
       console.error(error);
       // Tratamento básico de erros comuns do Firebase
@@ -225,7 +237,6 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ... (seus estilos originais continuam aqui, apenas adicionei os de erro abaixo)
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   inner: { flex: 1, paddingHorizontal: 24, justifyContent: "space-between" },
   header: { marginTop: 20 },
@@ -299,11 +310,9 @@ const styles = StyleSheet.create({
   },
   signupText: { color: "#8E8E93", fontSize: 15 },
   signupLink: { color: "#34C759", fontSize: 15, fontWeight: "600" },
-
-  // NOVOS ESTILOS ADICIONADOS:
   inputError: {
     borderWidth: 1,
-    borderColor: "#FF3B30", // Vermelho padrão iOS
+    borderColor: "#FF3B30",
   },
   errorText: {
     color: "#FF3B30",
@@ -311,6 +320,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   primaryButtonDisabled: {
-    backgroundColor: "#8EDC9F", // Verde mais claro para indicar desabilitado
+    backgroundColor: "#8EDC9F",
   },
 });

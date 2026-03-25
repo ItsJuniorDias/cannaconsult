@@ -7,8 +7,6 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
-import { AppNavigation } from "./(area-patient)/_layout";
-
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
@@ -84,6 +82,26 @@ export default function RootLayout() {
 
         <Stack.Screen
           name="(signatures-pending)/index"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="(dashboard)/index"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="(send-document)/index"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="(my-revenues)/index"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="(my-consultations)/index"
           options={{ headerShown: false }}
         />
       </Stack>

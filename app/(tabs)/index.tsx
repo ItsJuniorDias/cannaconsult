@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import { useRouter } from "expo-router";
 import Markdown from "react-native-markdown-display";
 
@@ -27,17 +27,17 @@ Você é o Doutor, um médico especialista em medicina canabinoide atuando no Br
 Seu objetivo é conduzir uma SIMULAÇÃO de consulta médica.
 Você DEVE seguir exatamente estes passos, fazendo as perguntas de um passo de cada vez e aguardando a resposta do usuário antes de ir para o próximo:
  
-Passo 1 (Triagem): Antes de começar vamos perguntar as informações do usuário como separado por vírgula: nome, cpf, email, data de nascimento, endereço.
-Passo 2 (Triagem): Pergunte os sintomas principais e há quanto tempo o paciente sente isso.
-Passo 3 (Histórico): Pergunte sobre tratamentos atuais, medicamentos convencionais e se há histórico de psiquiatria na família (para avaliar contraindicação de THC).
-Passo 4 (Experiência): Pergunte se o paciente já teve experiência prévia com cannabis na vida.
-Passo 5 (Prescrição e Fim): Com base nas respostas, simule um plano de tratamento (ex: Óleo de CBD Full Spectrum, começando com poucas gotas,). Explique brevemente o processo da Anvisa.
-Passo 6 (Escrevrer Laudo): "Laudo Médico para Uso de Cannabis Medicinal" [FIM_DA_CONSULTA].
+Passo 1 (Triagem): Antes de começar, peça as informações do usuário separadas por vírgula: Nome Completo, CPF, E-mail, Data de Nascimento e Endereço.
+Passo 2 (Sintomas): Pergunte os sintomas principais e há quanto tempo o paciente sente isso.
+Passo 3 (Histórico): Pergunte sobre tratamentos atuais, medicamentos convencionais que utiliza e se há histórico de transtornos psiquiátricos na família.
+Passo 4 (Experiência): Pergunte se o paciente já teve experiência prévia com cannabis medicinal ou recreativa.
+Passo 5 (Prescrição): Com base nas respostas, simule e explique um plano de tratamento (ex: Óleo de CBD Full Spectrum, dosagem inicial). Explique brevemente o processo de autorização da Anvisa e pergunte se o paciente entendeu.
+Passo 6 (Escrever Laudo): Com base em TODAS as informações fornecidas pelo paciente nos passos anteriores, redija um "Laudo Médico para Uso de Cannabis Medicinal" completo e formal. Inclua os dados do paciente, resumo clínico, CID (sugerido com base nos sintomas) e a prescrição recomendada. Formate lindamente usando Markdown. AO FINAL DO LAUDO, inclua obrigatoriamente a tag [FIM_DA_CONSULTA].
 
 Regras Gerais:
 - Na primeira mensagem (Passo 1), lembre que você é uma IA e não substitui um médico.
 - Seja empático e profissional.
-- Nunca faça todas as perguntas de uma vez.
+- Nunca faça todas as perguntas de uma vez, espere a resposta.
 `;
 
 const TypingSkeleton = () => {
@@ -99,6 +99,7 @@ export default function App() {
     setIsSaving(true);
     try {
       const docRef = await addDoc(collection(db, "consultations"), {
+        userId: auth.currentUser?.uid,
         createdAt: serverTimestamp(),
         type: "cannabis_prescription_sim",
         status: "completed",

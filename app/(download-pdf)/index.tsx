@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,10 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
+
+import AsyncStorage, {
+  AsyncStorageError,
+} from "@react-native-async-storage/async-storage";
 
 // 1. IMPORTAR O MARKED AQUI
 import { marked } from "marked";
@@ -37,6 +41,11 @@ export default function DownloadPDFScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
+  console.log(
+    consultationId,
+    "ID da consulta recebido nos parâmetros de busca",
+  );
+
   const patientInfo = {
     name: "Alexandre Júnior",
     cpf: "449.556.578-85",
@@ -44,6 +53,14 @@ export default function DownloadPDFScreen() {
     birthDate: "20/08/1997",
     address: "Rua Saldanha marinho, 2443",
   };
+
+  useEffect(() => {
+    const fetchAsyncStorage = async () => {
+      await AsyncStorage.setItem("@has_consultation", "true");
+    };
+
+    fetchAsyncStorage();
+  }, []);
 
   const fetchChatHistory = async () => {
     if (!consultationId) {
