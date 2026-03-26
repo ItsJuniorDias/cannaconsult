@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import {
   ChevronDown,
@@ -18,6 +19,10 @@ import {
   XCircle,
 } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
+
+// Novos imports do Firebase (Ajuste o caminho do seu firebaseConfig)
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "@/firebaseConfig"; // <-- ATENÇÃO: Ajuste este caminho!
 
 const PRIMARY_GREEN = "#34C759";
 
@@ -34,9 +39,11 @@ const DOCUMENT_OPTIONS = [
 export default function SendDocumentScreen() {
   const [docType, setDocType] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Novo estado para guardar as informações do arquivo selecionado
-  const [selectedFile, setSelectedFile] =
+  const [frontFile, setFrontFile] =
+    useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [backFile, setBackFile] =
     useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
   const handleSelectDocument = (label: string) => {
@@ -44,18 +51,19 @@ export default function SendDocumentScreen() {
     setIsDropdownOpen(false);
   };
 
-  // Função para abrir o seletor de arquivos
-  const handlePickDocument = async () => {
+  const handlePickDocument = async (side: "front" | "back") => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        // Limita os tipos de arquivos conforme a sua UI (PDF e Imagens)
         type: ["application/pdf", "image/jpeg", "image/png"],
         copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Arquivo selecionado com sucesso
-        setSelectedFile(result.assets[0]);
+        if (side === "front") {
+          setFrontFile(result.assets[0]);
+        } else {
+          setBackFile(result.assets[0]);
+        }
       }
     } catch (error) {
       console.error("Erro ao selecionar o arquivo:", error);
@@ -66,15 +74,153 @@ export default function SendDocumentScreen() {
     }
   };
 
-  // Função para limpar o arquivo selecionado
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
+  const handleRemoveFile = (side: "front" | "back") => {
+    if (side === "front") setFrontFile(null);
+    else setBackFile(null);
+  };
+
+  // Função auxiliar para enviar para o Cloudinary
+  const uploadSingleFile = async (file: DocumentPicker.DocumentPickerAsset) => {
+    const CLOUD_NAME = "dqvujibkn";
+    const UPLOAD_PRESET = "expo-upload";
+    const FOLDER_NAME = "documentos_medicos";
+
+    const data = new FormData();
+    data.append("file", {
+      uri: file.uri,
+      type: file.mimeType || "application/octet-stream",
+      name: file.name,
+    } as any);
+    data.append("upload_preset", UPLOAD_PRESET);
+    data.append("folder", FOLDER_NAME);
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
+      {
+        method: "POST",
+        body: data,
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error?.message || "Falha no upload");
+    }
+    return result.secure_url;
+  };
+
+  // --- FUNÇÃO ATUALIZADA: CLOUDINARY + FIRESTORE ---
+  const uploadToCloudinaryAndSave = async () => {
+    if (!frontFile || !backFile || !docType) return;
+
+    // 1. Verifica se o usuário está logado
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert(
+        "Erro de Autenticação",
+        "Você precisa estar logado para enviar documentos.",
+      );
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // 2. Faz o upload das imagens para o Cloudinary
+      const [frontUrl, backUrl] = await Promise.all([
+        uploadSingleFile(frontFile),
+        uploadSingleFile(backFile),
+      ]);
+
+      // 3. Salva os dados no Firestore na coleção 'document'
+      await addDoc(collection(db, "document"), {
+        userId: currentUser.uid,
+        documentType: docType,
+        frontDocumentUrl: frontUrl,
+        backDocumentUrl: backUrl,
+        status: "pendente", // Opcional: útil para moderação/análise futura
+        createdAt: serverTimestamp(), // Salva a data e hora do servidor do Firebase
+      });
+
+      Alert.alert(
+        "Sucesso!",
+        "Seus documentos foram enviados e salvos com sucesso.",
+      );
+
+      // 4. Limpa o formulário
+      setFrontFile(null);
+      setBackFile(null);
+      setDocType(null);
+    } catch (error: any) {
+      console.error("Erro no processo:", error);
+      Alert.alert(
+        "Erro",
+        error.message || "Ocorreu um erro ao enviar os dados. Tente novamente.",
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Função auxiliar para renderizar os botões
+  const renderUploadBox = (
+    side: "front" | "back",
+    title: string,
+    file: DocumentPicker.DocumentPickerAsset | null,
+  ) => {
+    return (
+      <View style={styles.uploadSection}>
+        <Text style={styles.uploadLabel}>{title}</Text>
+
+        {!file ? (
+          <TouchableOpacity
+            style={styles.uploadArea}
+            onPress={() => handlePickDocument(side)}
+            disabled={isUploading}
+          >
+            <FileUp size={32} color={PRIMARY_GREEN} strokeWidth={1.5} />
+            <Text style={styles.uploadText}>
+              Selecionar {title.toLowerCase()}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.uploadAreaSuccess}>
+            <View style={styles.fileInfoContainer}>
+              <FileCheck size={28} color={PRIMARY_GREEN} />
+              <View style={styles.fileTextContainer}>
+                <Text
+                  style={styles.fileNameText}
+                  numberOfLines={1}
+                  ellipsizeMode="middle"
+                >
+                  {file.name}
+                </Text>
+                <Text style={styles.fileSizeText}>
+                  {(file.size! / 1024 / 1024).toFixed(2)} MB
+                </Text>
+              </View>
+            </View>
+            {!isUploading && (
+              <TouchableOpacity
+                onPress={() => handleRemoveFile(side)}
+                style={styles.removeFileBtn}
+              >
+                <XCircle size={24} color="#FF3B30" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header Section */}
         <View style={styles.headerCard}>
           <Text style={styles.title}>Meus Documentos</Text>
           <Text style={styles.subtitle}>
@@ -82,17 +228,15 @@ export default function SendDocumentScreen() {
           </Text>
         </View>
 
-        {/* Upload Form Section */}
         <View style={styles.formCard}>
           <Text style={styles.formTitle}>Enviar Documento</Text>
 
           <Text style={styles.label}>Tipo de Documento *</Text>
-
-          {/* Dropdown Button */}
           <TouchableOpacity
             style={[styles.dropdown, isDropdownOpen && styles.dropdownOpen]}
             onPress={() => setIsDropdownOpen(!isDropdownOpen)}
             activeOpacity={0.8}
+            disabled={isUploading}
           >
             <Text
               style={[
@@ -111,7 +255,6 @@ export default function SendDocumentScreen() {
             />
           </TouchableOpacity>
 
-          {/* Dropdown Options List */}
           {isDropdownOpen && (
             <View style={styles.dropdownList}>
               {DOCUMENT_OPTIONS.map((option, index) => (
@@ -135,59 +278,30 @@ export default function SendDocumentScreen() {
             </View>
           )}
 
-          {/* Área de Upload Dinâmica */}
-          {!selectedFile ? (
-            <TouchableOpacity
-              style={styles.uploadArea}
-              onPress={handlePickDocument}
-            >
-              <FileUp size={40} color={PRIMARY_GREEN} strokeWidth={1.5} />
-              <Text style={styles.uploadText}>
-                Toque para selecionar um arquivo
-              </Text>
-              <Text style={styles.uploadSubtext}>PDF, JPG ou PNG até 10MB</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.uploadAreaSuccess}>
-              <View style={styles.fileInfoContainer}>
-                <FileCheck size={32} color={PRIMARY_GREEN} />
-                <View style={styles.fileTextContainer}>
-                  <Text
-                    style={styles.fileNameText}
-                    numberOfLines={1}
-                    ellipsizeMode="middle"
-                  >
-                    {selectedFile.name}
-                  </Text>
-                  <Text style={styles.fileSizeText}>
-                    {(selectedFile.size! / 1024 / 1024).toFixed(2)} MB
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                onPress={handleRemoveFile}
-                style={styles.removeFileBtn}
-              >
-                <XCircle size={24} color="#FF3B30" />
-              </TouchableOpacity>
-            </View>
-          )}
+          <View style={styles.doubleUploadContainer}>
+            {renderUploadBox("front", "Frente", frontFile)}
+            <View style={{ width: 15 }} />
+            {renderUploadBox("back", "Verso", backFile)}
+          </View>
 
+          {/* Botão de Enviar chama a nova função combinada */}
           <TouchableOpacity
-            onPress={() => {
-              console.log(selectedFile, "SELECTED FILES");
-            }}
+            onPress={uploadToCloudinaryAndSave}
             style={[
               styles.submitButton,
-              (!docType || !selectedFile) && styles.submitButtonDisabled,
+              (!docType || !frontFile || !backFile || isUploading) &&
+                styles.submitButtonDisabled,
             ]}
-            disabled={!docType || !selectedFile}
+            disabled={!docType || !frontFile || !backFile || isUploading}
           >
-            <Text style={styles.submitButtonText}>ENVIAR AGORA</Text>
+            {isUploading ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.submitButtonText}>ENVIAR AGORA</Text>
+            )}
           </TouchableOpacity>
         </View>
 
-        {/* Info Box */}
         <View style={styles.infoBox}>
           <Info size={18} color="#666" />
           <Text style={styles.infoText}>
@@ -200,7 +314,6 @@ export default function SendDocumentScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ... (mantenha os estilos anteriores de container, text, dropdown, etc) ...
   container: { flex: 1, backgroundColor: "#F8F9FA" },
   content: { padding: 20 },
   headerCard: { marginBottom: 20 },
@@ -264,61 +377,68 @@ const styles = StyleSheet.create({
   lastDropdownItem: { borderBottomWidth: 0 },
   dropdownItemText: { fontSize: 15, color: "#444", marginLeft: 10 },
 
-  // Estilos da área de Upload
+  // Novos Estilos para o Upload Duplo
+  doubleUploadContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  uploadSection: {
+    flex: 1,
+  },
+  uploadLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#666",
+    marginBottom: 8,
+    textAlign: "center",
+  },
   uploadArea: {
     borderWidth: 2,
     borderColor: PRIMARY_GREEN,
     borderStyle: "dashed",
     borderRadius: 12,
-    padding: 30,
+    paddingVertical: 20,
+    paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F0FFF4",
-    marginBottom: 20,
+    minHeight: 110,
   },
   uploadText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: 8,
+    fontSize: 13,
     fontWeight: "600",
     color: PRIMARY_GREEN,
+    textAlign: "center",
   },
-  uploadSubtext: { fontSize: 12, color: "#666", marginTop: 4 },
-
-  // Novos estilos para quando o arquivo for selecionado com sucesso
   uploadAreaSuccess: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: PRIMARY_GREEN,
     borderRadius: 12,
-    padding: 20,
+    padding: 12,
     backgroundColor: "#F0FFF4",
-    marginBottom: 20,
+    minHeight: 110,
   },
   fileInfoContainer: {
-    flexDirection: "row",
     alignItems: "center",
-    flex: 1,
-    marginRight: 10,
+    marginBottom: 8,
   },
   fileTextContainer: {
-    marginLeft: 12,
-    flex: 1,
+    alignItems: "center",
+    marginTop: 6,
   },
   fileNameText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     color: "#2D3436",
+    textAlign: "center",
   },
-  fileSizeText: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 2,
-  },
-  removeFileBtn: {
-    padding: 4,
-  },
+  fileSizeText: { fontSize: 11, color: "#666", marginTop: 2 },
+  removeFileBtn: { position: "absolute", top: 5, right: 5, padding: 2 },
 
   submitButton: {
     backgroundColor: PRIMARY_GREEN,
@@ -326,7 +446,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  submitButtonDisabled: { backgroundColor: "#A5D6A7" }, // Cor mais clara quando desabilitado
+  submitButtonDisabled: { backgroundColor: "#A5D6A7" },
   submitButtonText: {
     color: "#FFF",
     fontSize: 16,
