@@ -1,438 +1,438 @@
-import { router } from "expo-router";
 import React, { useState, useEffect } from "react";
 import {
-  StyleSheet,
-  Text,
   View,
-  TouchableOpacity,
-  ScrollView,
+  Text,
+  StyleSheet,
+  FlatList,
   ActivityIndicator,
+  TouchableOpacity,
+  SafeAreaView,
+  Alert,
+  Linking,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { signOut } from "firebase/auth";
+import { db, auth, storage } from "../../firebaseConfig";
 
-import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
-import { db } from "../../firebaseConfig"; // Ajuste o caminho conforme o seu projeto
+// Dependências Mobile
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
+import { decode as atob } from "base-64";
+import { marked } from "marked";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
-export default function AreaDoctorScreen() {
-  const [nextConsultation, setNextConsultation] = useState(null);
-  const [recentPatients, setRecentPatients] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function MedicalAreaMobile() {
+  const router = useRouter();
+  const [laudos, setLaudos] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [laudoProcessando, setLaudoProcessando] = useState(null); // Para mostrar loading no card específico
 
+  // ==========================================
+  // BUSCA DE DADOS
+  // ==========================================
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchLaudos = async () => {
       try {
-        const consultationsRef = collection(db, "consultations");
+        const laudosRef = collection(db, "laudos");
+        const q = query(laudosRef, orderBy("timestamp", "desc"));
+        const querySnapshot = await getDocs(q);
 
-        // Buscamos os 6 últimos para separar: 1 para o próximo atendimento, 5 para o histórico
-        const q = query(
-          consultationsRef,
-          orderBy("createdAt", "desc"),
-          limit(6),
-        );
+        const laudosData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
-        const snapshot = await getDocs(q);
-
-        if (!snapshot.empty) {
-          const docs = snapshot.docs;
-
-          // O mais recente vira o "Próximo Atendimento"
-          const firstDoc = docs[0];
-          setNextConsultation({
-            id: firstDoc.id,
-            // Proteção adicionada (?.) para evitar crash se o chatHistory for menor que 3
-            patientName:
-              firstDoc.data().chatHistory?.[3]?.text?.split(",")[0] ||
-              "Paciente Não Identificado",
-            scheduledAt:
-              firstDoc.data().createdAt?.toDate().getTime() +
-              24 * 60 * 60 * 1000,
-            ...firstDoc.data(),
-          });
-
-          // Os restantes (do índice 0 em diante) viram os "Últimos Pacientes"
-          const recents = docs.slice(0).map((doc) => ({
-            id: doc.id,
-            patientName:
-              doc.data().chatHistory?.[3]?.text?.split(",")[0] || "Paciente",
-            createdAt: doc.data().createdAt,
-            status: doc.data().status,
-          }));
-
-          console.log(recents, "Pacientes recentes encontrados:");
-
-          setRecentPatients(recents);
-        } else {
-          setNextConsultation(null);
-          setRecentPatients([]);
-        }
+        setLaudos(laudosData);
       } catch (error) {
-        console.error("Erro ao buscar dados:", error);
+        console.error("Erro ao buscar laudos:", error);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    fetchData();
+    fetchLaudos();
   }, []);
 
-  const formatDateTime = (timestamp) => {
-    if (!timestamp) return { date: "", time: "" };
-    const dateObj = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const dateStr = dateObj.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-    });
-    const timeStr = dateObj.toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    return {
-      date: `Hoje, ${dateStr}`,
-      time: timeStr,
-      shortDate: dateObj.toLocaleDateString("pt-BR"),
-    };
-  };
-
-  const getInitials = (name) => {
-    if (!name || name === "Paciente Não Identificado") return "P";
-    const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  // ==========================================
+  // HANDLERS (PDF E WHATSAPP NO MOBILE)
+  // ==========================================
+  const decodeBase64 = (base64) => {
+    try {
+      const binString = atob(base64);
+      // No RN, utf8 é tratado por padrão se a string estiver limpa,
+      // se houver caracteres especiais, você pode usar libs como utf8 ou Buffer
+      return decodeURIComponent(escape(binString));
+    } catch (e) {
+      console.error("Erro ao decodificar Base64", e);
+      return "Erro ao carregar o conteúdo do laudo.";
     }
-    return name.substring(0, 2).toUpperCase();
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.greeting}>Olá, Dr. Carlos</Text>
-          <Text style={styles.subtitle}>
-            Bom plantão! Aqui está o seu resumo de hoje.
+  const handleDownloadPDF = async (laudo) => {
+    if (!laudo.conteudoLaudo) {
+      Alert.alert("Erro", "Conteúdo do laudo não encontrado.");
+      return;
+    }
+
+    try {
+      const markdownString = decodeBase64(laudo.conteudoLaudo);
+      const htmlContent = marked.parse(markdownString);
+
+      const html = `
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+        </head>
+        <body style="padding: 40px; font-family: sans-serif; color: #333; line-height: 1.6;">
+          <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px;">
+            <h1 style="text-transform: uppercase; font-size: 22px; margin: 0;">Laudo Médico - Cannabis Medicinal</h1>
+            <p style="color: #666; margin-top: 5px;">Dr. ${laudo.medico || "João Marcos Santos da Silva"} - ${laudo.crm || "CRM-MT 14316"}</p>
+          </div>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 30px;">
+            <h3 style="margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Dados do Paciente</h3>
+            <p><strong>Nome:</strong> ${laudo.paciente}</p>
+            <p><strong>CPF:</strong> ${laudo.cpf}</p>
+            <p><strong>Data de Emissão:</strong> ${laudo.dataCriacao.split("-").reverse().join("/")}</p>
+          </div>
+
+          <div style="font-size: 14px;">
+            ${htmlContent}
+          </div>
+
+          <div style="margin-top: 60px; text-align: center; border-top: 1px solid #333; padding-top: 20px;">
+            <p><strong>${laudo.medico || "João Marcos Santos da Silva"}</strong></p>
+            <p style="font-size: 12px; color: #666;">${laudo.crm || "CRM-MT 14316"}</p>
+            <p style="font-size: 10px; color: #999; margin-top: 10px;">Assinado Digitalmente</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Gera o PDF no sistema de arquivos do aparelho
+      const { uri } = await Print.printToFileAsync({ html });
+
+      // Abre a tela nativa para salvar, enviar ou visualizar o PDF
+      await Sharing.shareAsync(uri, {
+        UTI: ".pdf",
+        mimeType: "application/pdf",
+      });
+    } catch (error) {
+      console.error("Erro ao gerar o PDF:", error);
+      Alert.alert("Erro", "Ocorreu um erro ao tentar gerar o PDF.");
+    }
+  };
+
+  const handleUploadAndSendToWhatsApp = async (laudo) => {
+    if (!laudo.telefone) {
+      Alert.alert(
+        "Aviso",
+        "Número de telefone do paciente não encontrado no banco de dados.",
+      );
+      return;
+    }
+
+    try {
+      // 1. Abre o seletor de arquivos do dispositivo
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "application/pdf",
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return; // Usuário fechou o seletor
+
+      const file = result.assets[0];
+      setLaudoProcessando(laudo.id);
+      setIsUploading(true);
+
+      // 2. Prepara o arquivo para o Firebase Storage no formato Blob
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+      const fileName = `laudos_assinados/${laudo.id}_${Date.now()}_${file.name}`;
+      const storageReference = ref(storage, fileName);
+
+      // 3. Faz o upload
+      await uploadBytes(storageReference, blob);
+      const downloadURL = await getDownloadURL(storageReference);
+
+      // 4. Atualiza o banco de dados
+      const laudoRef = doc(db, "laudos", laudo.id);
+      await updateDoc(laudoRef, {
+        status: "Finalizado",
+        urlAssinado: downloadURL,
+        dataAssinatura: new Date().toISOString(),
+      });
+
+      // Atualiza estado local
+      setLaudos((prevLaudos) =>
+        prevLaudos.map((item) =>
+          item.id === laudo.id ? { ...item, status: "Finalizado" } : item,
+        ),
+      );
+
+      // 5. Formata número de telefone
+      let telefoneFormatado = laudo.telefone.replace(/\D/g, "");
+      if (!telefoneFormatado.startsWith("55")) {
+        telefoneFormatado = "+55" + telefoneFormatado;
+      }
+
+      // 6. Abre o WhatsApp nativamente
+      const mensagem = `Olá, ${laudo.paciente}! Aqui está o seu Laudo Médico assinado. Você pode acessá-lo através deste link: ${downloadURL}`;
+      const whatsappUrl = `https://wa.me/${telefoneFormatado}?text=${encodeURIComponent(mensagem)}`;
+
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        Alert.alert(
+          "Erro",
+          "Não foi possível abrir o WhatsApp. Ele está instalado no aparelho?",
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao processar arquivo:", error);
+      Alert.alert(
+        "Erro",
+        "Ocorreu um erro ao atualizar o status ou enviar o arquivo.",
+      );
+    } finally {
+      setIsUploading(false);
+      setLaudoProcessando(null);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+
+      router.replace("/(login)");
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+    }
+  };
+
+  // ==========================================
+  // RENDERIZAÇÃO DOS CARDS
+  // ==========================================
+  const renderLaudo = ({ item }) => {
+    const dataFormatada = item.dataCriacao
+      ? item.dataCriacao.split("-").reverse().join("/")
+      : "N/A";
+    const isThisCardLoading = isUploading && laudoProcessando === item.id;
+
+    let statusStyle = styles.statusPendente;
+    let statusTextStyle = styles.statusTextPendente;
+    if (item.status === "Aprovado") {
+      statusStyle = styles.statusAprovado;
+      statusTextStyle = styles.statusTextAprovado;
+    } else if (item.status === "Finalizado") {
+      statusStyle = styles.statusFinalizado;
+      statusTextStyle = styles.statusTextFinalizado;
+    }
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.pacienteNome}>{item.paciente}</Text>
+          <View style={[styles.statusBadge, statusStyle]}>
+            <Text style={[styles.statusText, statusTextStyle]}>
+              {item.status || "Pendente"}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.cardBody}>
+          <Text style={styles.infoText}>
+            <Text style={styles.infoLabel}>CPF: </Text>
+            {item.cpf}
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.infoLabel}>Data: </Text>
+            {dataFormatada}
           </Text>
         </View>
 
-        {/* Card de Alerta */}
-        <TouchableOpacity style={styles.card} activeOpacity={0.7}>
-          <View style={styles.alertContent}>
-            <View style={styles.iconContainer}>
-              <Text style={styles.iconEmoji}>✍️</Text>
-            </View>
-            <View style={styles.alertTextContainer}>
-              <Text style={styles.cardTitle}>Assinaturas Pendentes</Text>
-              <Text style={styles.alertBody}>
-                3 receitas aguardam sua assinatura digital.
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.push("/(signatures-pending)")}
-              >
-                <Text style={styles.linkAction}>Revisar e assinar ➔</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        {/* BOTÕES DE AÇÃO */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              styles.btnDownload,
+              !item.conteudoLaudo && styles.btnDisabled,
+            ]}
+            onPress={() => handleDownloadPDF(item)}
+            disabled={!item.conteudoLaudo || isThisCardLoading}
+          >
+            <MaterialIcons name="file-download" size={20} color="#374151" />
+            <Text style={styles.btnDownloadText}>Gerar PDF</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              styles.btnUpload,
+              isThisCardLoading && styles.btnDisabled,
+            ]}
+            onPress={() => handleUploadAndSendToWhatsApp(item)}
+            disabled={isThisCardLoading}
+          >
+            {isThisCardLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
+                <Text style={styles.btnUploadText}>Enviar Assinado</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>
+          CANNA CONSULT <Text style={styles.headerHighlight}>| Médico</Text>
+        </Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <MaterialIcons name="logout" size={20} color="#6B7280" />
+          <Text style={styles.logoutText}>Sair</Text>
         </TouchableOpacity>
+      </View>
 
-        {/* Card Próximo Paciente */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Próximo Atendimento</Text>
-            <TouchableOpacity onPress={() => router.push("/(schedule)")}>
-              <Text style={styles.linkAction}>Ver Agenda</Text>
-            </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <View style={{ padding: 20, alignItems: "center" }}>
-              <ActivityIndicator size="small" color="#34C759" />
-              <Text style={{ marginTop: 8, color: "#8E8E93" }}>
-                Carregando paciente...
-              </Text>
-            </View>
-          ) : nextConsultation ? (
-            <>
-              <View style={styles.patientRow}>
-                <View style={styles.patientAvatar}>
-                  <Text style={styles.patientAvatarText}>
-                    {getInitials(nextConsultation.patientName)}
-                  </Text>
-                </View>
-                <View style={styles.patientDetails}>
-                  <Text style={styles.patientName}>
-                    {nextConsultation.patientName}
-                  </Text>
-                  <View style={styles.statusBadge}>
-                    <View style={styles.statusDot} />
-                    <Text style={styles.patientStatus}>
-                      Aguardando video chamada
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.appointmentTimeContainer}>
-                <Text style={styles.appointmentDate}>
-                  {formatDateTime(nextConsultation.scheduledAt).date}
-                </Text>
-                <Text style={styles.appointmentTime}>
-                  {formatDateTime(nextConsultation.scheduledAt).time}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() =>
-                  router.push(`/(video-call)?id=${nextConsultation.id}`)
-                }
-                style={styles.primaryButton}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.primaryButtonIcon}>📹</Text>
-                <Text style={styles.primaryButtonText}>
-                  Iniciar Videoconferência
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={styles.emptyStateContainer}>
-              <Text style={styles.emptyStateText}>
-                Nenhum paciente aguardando no momento.
-              </Text>
-            </View>
-          )}
+      <View style={styles.container}>
+        <View style={styles.pageInfo}>
+          <Text style={styles.pageTitle}>Laudos Gerados</Text>
+          <Text style={styles.pageSubtitle}>
+            Consulte e envie os laudos das avaliações.
+          </Text>
         </View>
 
-        {/* Card Histórico de Pacientes Atualizado */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Últimos Pacientes</Text>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#34C759" />
+            <Text style={styles.loadingText}>Buscando laudos...</Text>
           </View>
-
-          {loading ? (
-            <ActivityIndicator
-              size="small"
-              color="#34C759"
-              style={{ marginVertical: 20 }}
-            />
-          ) : recentPatients.length > 0 ? (
-            recentPatients.map((patient, index) => (
-              <TouchableOpacity
-                key={patient.id}
-                style={[
-                  styles.recentPatientRow,
-                  index === recentPatients.length - 1 && {
-                    borderBottomWidth: 0,
-                  }, // Tira a linha do último item
-                ]}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(download-pdf)",
-                    params: { consultationId: patient.id },
-                  })
-                }
-              >
-                <View
-                  style={[
-                    styles.patientAvatar,
-                    { width: 40, height: 40, marginRight: 12 },
-                  ]}
-                >
-                  <Text style={[styles.patientAvatarText, { fontSize: 14 }]}>
-                    {getInitials(patient.patientName)}
-                  </Text>
-                </View>
-                <View style={styles.patientDetails}>
-                  <Text style={styles.patientName}>{patient.patientName}</Text>
-                  <Text style={styles.patientStatus}>
-                    Consulta em {formatDateTime(patient.createdAt).shortDate}
-                  </Text>
-                </View>
-                <Text style={styles.linkAction}>Ver</Text>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.emptyStateContainer}>
-              <Text style={styles.emptyStateText}>
-                Nenhum paciente atendido recentemente.
+        ) : (
+          <FlatList
+            data={laudos}
+            keyExtractor={(item) => item.id}
+            renderItem={renderLaudo}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>
+                Nenhum laudo encontrado no momento.
               </Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+            }
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
+// ==========================================
+// ESTILOS
+// ==========================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F2F2F7",
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
+  safeArea: { flex: 1, backgroundColor: "#FDF9F3" },
   header: {
-    marginBottom: 24,
-    paddingHorizontal: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    elevation: 2,
   },
-  greeting: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#000000",
-    marginBottom: 4,
-    letterSpacing: 0.3,
+  headerTitle: { fontSize: 16, fontWeight: "bold", color: "#1F2937" },
+  headerHighlight: { color: "#34C759" },
+  logoutButton: { flexDirection: "row", alignItems: "center", gap: 4 },
+  logoutText: { fontSize: 14, fontWeight: "600", color: "#6B7280" },
+  container: { flex: 1, padding: 20 },
+  pageInfo: { marginBottom: 20 },
+  pageTitle: { fontSize: 24, fontWeight: "bold", color: "#1F2937" },
+  pageSubtitle: { fontSize: 14, color: "#6B7280", marginTop: 4 },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 12, color: "#6B7280", fontSize: 16 },
+  listContent: { paddingBottom: 20 },
+  emptyText: {
+    textAlign: "center",
+    color: "#9CA3AF",
+    marginTop: 40,
+    fontSize: 16,
   },
-  subtitle: {
-    fontSize: 15,
-    color: "#8E8E93",
-  },
+
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-  },
-  alertContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(52, 199, 89, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
-  },
-  iconEmoji: {
-    fontSize: 22,
-  },
-  alertTextContainer: {
-    flex: 1,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#000000",
-  },
-  alertBody: {
-    fontSize: 14,
-    color: "#8E8E93",
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  linkAction: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#34C759",
-  },
-  patientRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  recentPatientRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E5EA",
-  },
-  patientAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#F2F2F7",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  patientAvatarText: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#8E8E93",
-  },
-  patientDetails: {
-    flex: 1,
-  },
-  patientName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 4,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#34C759",
-    marginRight: 6,
-  },
-  patientStatus: {
-    fontSize: 13,
-    color: "#8E8E93",
-    fontWeight: "500",
-  },
-  appointmentTimeContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#F2F2F7",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  appointmentDate: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#000000",
-  },
-  appointmentTime: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#000000",
-  },
-  primaryButton: {
-    backgroundColor: "#34C759",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderRadius: 14,
     marginBottom: 12,
   },
-  primaryButtonIcon: {
-    marginRight: 8,
-    fontSize: 18,
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
+  pacienteNome: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
+    color: "#1F2937",
+    flex: 1,
+    marginRight: 8,
   },
-  emptyStateContainer: {
+  cardBody: { flexDirection: "column", gap: 4, marginBottom: 16 },
+  infoText: { fontSize: 14, color: "#4B5563" },
+  infoLabel: { fontWeight: "bold", color: "#9CA3AF" },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusText: { fontSize: 12, fontWeight: "bold" },
+  statusAprovado: { backgroundColor: "#DBEAFE" },
+  statusTextAprovado: { color: "#1D4ED8" },
+  statusFinalizado: { backgroundColor: "#D1FAE5" },
+  statusTextFinalizado: { color: "#047857" },
+  statusPendente: { backgroundColor: "#FEF3C7" },
+  statusTextPendente: { color: "#B45309" },
+
+  actionButtonsContainer: {
+    flexDirection: "row",
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    paddingTop: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
   },
-  emptyStateText: {
-    fontSize: 15,
-    color: "#8E8E93",
-  },
+  btnDownload: { backgroundColor: "#F3F4F6" },
+  btnDownloadText: { fontSize: 13, fontWeight: "bold", color: "#374151" },
+  btnUpload: { backgroundColor: "#25D366" },
+  btnUploadText: { fontSize: 13, fontWeight: "bold", color: "#FFFFFF" },
+  btnDisabled: { opacity: 0.5 },
 });
