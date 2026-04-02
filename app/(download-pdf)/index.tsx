@@ -17,9 +17,7 @@ import { db } from "../../firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 
-import AsyncStorage, {
-  AsyncStorageError,
-} from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // 1. IMPORTAR O MARKED AQUI
 import { marked } from "marked";
@@ -209,7 +207,7 @@ export default function DownloadPDFScreen() {
               color: #1C1C1E;
               font-size: 13px;
               line-height: 1.6;
-              max-width: 60%;
+              max-width: 65%;
             }
             .signature-content p {
               margin: 4px 0;
@@ -262,19 +260,15 @@ export default function DownloadPDFScreen() {
           </div>
 
           <div class="signature-block">
-            <div class="signature-content">
-              <div class="signature-title">Informações de Emissão e Responsabilidade Técnica</div>
-              <p><strong>Assinado digitalmente por:</strong> Murilo Alves Navarro</p>
-              <p><strong>CRM:</strong> CRM/SP 177992</p>
-              <p><strong>Especialidade:</strong> Cannabis Medicinal</p>
-              <p><strong>Data de Criação:</strong> 11/03/2026</p>
-              <p><strong>Data de Emissão:</strong> 11/03/2026</p>
+            <div class="signature-content" style="text-align: center; background-color: transparent; padding: 0;">
+                
+                <div style="border-top: 1px solid #1C1C1E; width: 300px; margin: 0 auto 8px auto;"></div>
+                
+                <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1C1C1E;">
+                    [Nome do Profissional]
+                </p>
             </div>
-            
-            <div class="qr-code-container">
-              <img src="${qrCodeUri}" class="qr-code" alt="QR Code Estático" />
-            </div>
-          </div>
+        </div>
         </body>
       </html>
     `;

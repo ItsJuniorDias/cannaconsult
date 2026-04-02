@@ -98,6 +98,18 @@ export default function DefineGoalsScreenFive() {
     try {
       const patientRef = doc(db, "patients", user.uid);
 
+      const preferencesRef = doc(db, "preferences", user.uid);
+
+      await setDoc(
+        preferencesRef,
+        {
+          ...data,
+          userId: user.uid,
+          updatedAt: new Date(), // Opcional: boa prática para saber quando foi salvo
+        },
+        { merge: true },
+      );
+
       // Salva o último grupo de informações preservando o histórico dos Passos 1 ao 4
       await setDoc(patientRef, { preferences: data }, { merge: true });
 

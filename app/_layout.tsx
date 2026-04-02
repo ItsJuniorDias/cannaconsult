@@ -10,7 +10,7 @@ import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
-  anchor: "(tabs)",
+  anchor: "(chat)",
 };
 
 export default function RootLayout() {
@@ -19,7 +19,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
-        <Stack.Screen name="(tabs)/index" options={{ headerShown: false }} />
+        <Stack.Screen name="(chat)/index" options={{ headerShown: false }} />
         <Stack.Screen name="(app)/index" options={{ headerShown: false }} />
         <Stack.Screen
           name="(download-pdf)/index"

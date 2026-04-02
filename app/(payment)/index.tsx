@@ -71,7 +71,7 @@ export default function PaymentScreen() {
     try {
       const { customerInfo } = await Purchases.purchasePackage(currentPackage);
 
-      router.push("/(tabs)");
+      router.push("/(chat)");
     } catch (error) {
       if (!error.userCancelled) {
         Alert.alert("Erro na compra", error.message);

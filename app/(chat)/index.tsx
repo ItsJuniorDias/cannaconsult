@@ -14,10 +14,17 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 import { useRouter } from "expo-router";
 import Markdown from "react-native-markdown-display";
+import { onAuthStateChanged } from "firebase/auth";
 
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -79,7 +86,7 @@ export default function App() {
     {
       id: "1",
       role: "model",
-      text: "Olá! Sou o Doutor. Bem-vindo à nossa simulação de consulta. Antes de começarmos, lembre-se: sou uma IA e esta é uma simulação educacional, não um conselho médico real. Para iniciarmos a nossa triagem (Passo 1), o que te traz ao consultório hoje e há quanto tempo você tem esses sintomas?",
+      text: "Olá! Sou o Doutor. Bem-vindo à nossa consulta. Antes de começarmos, lembre-se: sou uma IA e esta é uma simulação educacional. Para iniciarmos a nossa triagem (Passo 1), o que te traz ao consultório hoje e há quanto tempo você tem esses sintomas?",
     },
   ]);
   const [inputText, setInputText] = useState("");
@@ -87,13 +94,85 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isConsultationEnded, setIsConsultationEnded] = useState(false);
 
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [dynamicSystemInstruction, setDynamicSystemInstruction] =
+    useState(systemInstruction);
+
   const flatListRef = useRef(null);
   const router = useRouter();
 
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
-    systemInstruction: systemInstruction,
+    systemInstruction: dynamicSystemInstruction,
   });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Busca as preferências no Firestore
+          const prefRef = doc(db, "preferences", user.uid);
+          const prefSnap = await getDoc(prefRef);
+
+          let preferencesText =
+            "O paciente não definiu preferências específicas. Avalie a melhor via de administração.";
+
+          if (prefSnap.exists()) {
+            const data = prefSnap.data();
+            const produtosSelecionados =
+              data.products && data.products.length > 0
+                ? data.products.join(", ")
+                : "nenhuma preferência específica";
+
+            preferencesText = `
+              PREFERÊNCIAS OBRIGATÓRIAS DO PACIENTE:
+              - Produtos/Vias de administração escolhidas: ${produtosSelecionados}.
+              - Investimento mensal planejado: R$ ${data.monthlyInvestment}.
+              - Duração esperada do tratamento: ${data.durationInMonths} meses.
+              
+              REGRA CRÍTICA DE PRESCRIÇÃO: Você DEVE prescrever EXCLUSIVAMENTE os produtos escolhidos pelo paciente (${produtosSelecionados}). Não prescreva óleos se ele escolheu apenas flores, por exemplo. Adapte a dosagem ao orçamento mensal informado.
+            `;
+          }
+
+          // Monta a instrução do sistema com as preferências injetadas
+          const instruction = `
+            Você é o Doutor, um médico especialista em medicina canabinoide atuando no Brasil.
+            Seu objetivo é conduzir uma de consulta médica.
+            
+            ${preferencesText}
+
+            Você DEVE seguir exatamente estes passos, fazendo as perguntas de um passo de cada vez e aguardando a resposta do usuário antes de ir para o próximo:
+            
+            Passo 1 (Sintomas): Pergunte os sintomas principais e há quanto tempo o paciente sente isso.
+            Passo 2 (Histórico): Pergunte sobre tratamentos atuais, medicamentos convencionais que utiliza e se há histórico de transtornos psiquiátricos na família.
+            Passo 3 (Experiência): Pergunte se o paciente já teve experiência prévia com cannabis medicinal ou recreativa.
+            Passo 4 (Prescrição): Com base nas respostas e nas PREFERÊNCIAS DO PACIENTE listadas acima, simule e explique um plano de tratamento restrito ao que o paciente escolheu. Explique brevemente o processo de autorização da Anvisa e pergunte se o paciente entendeu.
+            Passo 5 (Escrever Laudo): Com base em TODAS as informações fornecidas, redija um "Laudo Médico para Uso de Cannabis Medicinal" completo e formal, resumo clínico, sem a identificação do paciente, CID (sugerido) e a prescrição recomendada (RESTRITA ÀS PREFERÊNCIAS). Formate lindamente usando Markdown. AO FINAL DO LAUDO, inclua obrigatoriamente a tag [FIM_DA_CONSULTA].
+
+            Regras Gerais:
+            - Médico Responsável: Dr. João Marcos Santos da Silva, CRM-MT 14316 - Especialidade Psiquiatria.
+            - Na primeira mensagem (Passo 1), lembre que você é uma IA e não substitui um médico.
+            - Seja empático e profissional.
+            - Não é um documento simulado, pois será assinado por um médico de verdade, então não deixe nada explícito que possa indicar que é uma simulação.
+            - Nunca faça todas as perguntas de uma vez, sempre uma pergunta por vez, aguardando a resposta do paciente.
+            - Deixe bem claro que foi feita uma anamnese/triagem, pois a consulta oficial fica a cargo do médico.
+          `;
+
+          setDynamicSystemInstruction(instruction);
+        } catch (error) {
+          console.error("Erro ao buscar preferências:", error);
+        } finally {
+          setIsInitializing(false);
+        }
+      } else {
+        // Usuário não logado (Redirecionar ou lidar com o erro)
+        console.warn("Usuário não autenticado.");
+        setIsInitializing(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const saveConsultation = async (finalMessages) => {
     setIsSaving(true);
