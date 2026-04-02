@@ -14,15 +14,9 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-// Importações para geração e visualização do PDF
-import { writeAsStringAsync, deleteAsync } from "expo-file-system";
-import * as Sharing from "expo-sharing";
-import * as Print from "expo-print"; // Nova importação adicionada
-
-// Importações do Firebase (Ajuste o caminho conforme o seu projeto)
+// Importações do Firebase
 import { collection, getDocs } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
-import { EncodingType } from "expo-file-system/build/ExpoFileSystem.types";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -50,12 +44,10 @@ export default function Dashboard() {
         const laudosCollection = collection(db, "laudos");
         const laudosSnapshot = await getDocs(laudosCollection);
 
-        // Mapeia os documentos e filtra (caso você relacione o laudo ao usuário logado)
         const laudosData = laudosSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
-        // .filter((laudo) => laudo.paciente === user.displayName); // Adapte o filtro conforme sua regra de negócio
 
         setLaudos(laudosData);
       } catch (error) {
@@ -79,7 +71,7 @@ export default function Dashboard() {
     setSelectedLaudo(null);
   };
 
-  // Função 1: Abre a URL do laudo assinado no navegador/leitor do sistema
+  // Função para abrir a URL
   const handleDownload = async (url) => {
     if (!url) {
       Alert.alert("Aviso", "Este laudo não possui um link para download.");
@@ -99,65 +91,18 @@ export default function Dashboard() {
     }
   };
 
-  // Função 2: Converte o código (HTML/Texto) em PDF e abre nativamente
-
-  const handleGenerateAndOpenPdf = async (conteudoBase64) => {
-    if (!conteudoBase64) {
-      Alert.alert("Aviso", "Conteúdo do laudo indisponível.");
-      return;
-    }
-
-    try {
-      // Decodifica o Base64 para texto (assumindo que seja HTML)
-      const decodedContent = atob(conteudoBase64);
-
-      //formatar o conteúdo HTML para garantir que seja renderizado corretamente
-      const htmlContent = `
-        <html>
-          <head>
-            <meta charset="UTF-8">
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; }
-              h1 { color: #34C75E; }
-              p { font-size: 14px; line-height: 1.5; }
-            </style>
-          </head>
-          <body>
-            ${decodedContent}
-          </body>
-        </html>
-      `;
-
-      // Gera o PDF usando o conteúdo decodificado
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-      });
-
-      // Compartilha o PDF gerado
-      await Sharing.shareAsync(uri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Compartilhar Laudo Médico",
-        UTI: "com.adobe.pdf",
-      });
-
-      // Opcional: Exclui o arquivo temporário após compartilhar
-      await deleteAsync(uri, { idempotent: true });
-    } catch (error) {
-      console.error("Erro ao processar Base64:", error);
-      Alert.alert("Erro", "Não foi possível processar e abrir o laudo.");
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Olá, Alexandre</Text>
+          <Text style={styles.greeting}>
+            Olá, {laudos[0]?.paciente || "Usuário"}
+          </Text>
           <Text style={styles.subGreeting}>Seja bem-vindo de volta.</Text>
         </View>
 
-        {/* Alerta */}
+        {/* Alerta de Documento */}
         <TouchableOpacity style={styles.alertCard} activeOpacity={0.7}>
           <View style={styles.alertIconContainer}>
             <Feather name="folder" size={24} color="#34C75E" />
@@ -173,6 +118,32 @@ export default function Dashboard() {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+
+        {/* NOVO: Card de Pagamento */}
+
+        {!laudos.length && (
+          <TouchableOpacity
+            style={styles.paymentCard}
+            activeOpacity={0.8}
+            onPress={() => router.push("/(payment)")}
+          >
+            <View style={styles.paymentIconContainer}>
+              <Feather name="credit-card" size={22} color="#FFF" />
+            </View>
+            <View style={styles.paymentTextContainer}>
+              <Text style={styles.paymentTitle}>Pagamentos</Text>
+              <Text style={styles.paymentDescription}>
+                Gerencie seu plano para não perder acesso aos seus laudos.
+              </Text>
+            </View>
+            {/* Ajuste na cor da seta para combinar com o fundo verde */}
+            <Feather
+              name="chevron-right"
+              size={20}
+              color="rgba(255, 255, 255, 0.7)"
+            />
+          </TouchableOpacity>
+        )}
 
         {/* Área de Laudos */}
         <View style={styles.gridContainer}>
@@ -260,7 +231,6 @@ export default function Dashboard() {
             </View>
 
             <View style={styles.modalActions}>
-              {/* Botão que abre a URL */}
               <TouchableOpacity
                 style={[styles.actionButton, styles.downloadButton]}
                 onPress={() => handleDownload(selectedLaudo?.urlAssinado)}
@@ -306,13 +276,14 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
     marginTop: 4,
   },
+  // --- Estilos do Alerta de Documento ---
   alertCard: {
     backgroundColor: "#FFF",
     borderRadius: 20,
     padding: 20,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -349,6 +320,46 @@ const styles = StyleSheet.create({
     color: "#34C75E",
     marginTop: 8,
   },
+
+  // --- NOVO: Estilos do Card de Pagamento Ajustados ---
+  paymentCard: {
+    backgroundColor: "#34C75E", // Fundo verde principal
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+    shadowColor: "#34C75E", // Sombra esverdeada para combinar
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, // Um pouco mais visível
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  paymentIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.25)", // Fundo do ícone contrastando com o verde
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  paymentTextContainer: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  paymentTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFF", // Mantém branco forte pro título
+  },
+  paymentDescription: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.9)", // Descrição clara para boa leitura sobre o verde
+    marginTop: 4,
+    lineHeight: 18,
+  },
+
   gridContainer: {
     gap: 20,
   },
@@ -494,16 +505,6 @@ const styles = StyleSheet.create({
   },
   downloadButtonText: {
     color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  viewButton: {
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: "#34C75E",
-  },
-  viewButtonText: {
-    color: "#34C75E",
     fontSize: 16,
     fontWeight: "600",
   },
