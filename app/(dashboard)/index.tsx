@@ -121,7 +121,7 @@ export default function Dashboard() {
 
         {/* NOVO: Card de Pagamento */}
 
-        {!laudos.length && (
+        {laudos.length && (
           <TouchableOpacity
             style={styles.paymentCard}
             activeOpacity={0.8}
