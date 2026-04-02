@@ -121,7 +121,7 @@ export default function Dashboard() {
 
         {/* NOVO: Card de Pagamento */}
 
-        {laudos.length && (
+        {!laudos.length && (
           <TouchableOpacity
             style={styles.paymentCard}
             activeOpacity={0.8}
@@ -150,9 +150,6 @@ export default function Dashboard() {
           <View style={styles.mainCard}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Meus Laudos</Text>
-              <TouchableOpacity onPress={() => router.push("/(my-revenues)")}>
-                <Text style={styles.seeMore}>Ver todos</Text>
-              </TouchableOpacity>
             </View>
 
             {loading ? (
