@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.cannaconsult",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Precisamos do FaceID para autorizar a assinatura digital de documentos médicos."
+        "NSFaceIDUsageDescription": "Precisamos do FaceID para autorizar a assinatura digital de documentos médicos.",
+        "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para garantir que nossos serviços estão disponíveis e legalizados na sua região."
       }
     },
     "android": {

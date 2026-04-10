@@ -7,6 +7,7 @@ import {
   ScrollView,
   Dimensions,
   Alert,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -14,11 +15,10 @@ import { StatusBar } from "expo-status-bar";
 import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 
-// 1. Importações do Hook Form, Zod e Firebase
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { db, auth } from "@/firebaseConfig"; // Ajuste para o caminho real do seu projeto
+import { db, auth } from "@/firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 
 const { width } = Dimensions.get("window");
@@ -33,18 +33,38 @@ const PRODUCT_PREFERENCES = [
   { id: "pomadas", label: "Pomadas", icon: "heart" },
 ];
 
-// 2. Definição do Schema com Zod
 const preferencesSchema = z.object({
   selectedProducts: z.array(z.string()).default([]),
   duration: z.number().min(1, "Duração mínima é 1 mês").max(24).default(3),
   investment: z.number().min(0).max(5000).default(1000),
 });
 
+// COMPONENTE DE CITAÇÃO MÉDICA (Estilo iOS)
+const MedicalCitation = ({ title, source, url }) => {
+  return (
+    <TouchableOpacity
+      style={styles.citationContainer}
+      activeOpacity={0.7}
+      onPress={() => Linking.openURL(url)}
+    >
+      <View style={styles.citationIconContainer}>
+        <Feather name="book-open" size={20} color="#8E8E93" />
+      </View>
+      <View style={styles.citationTextContainer}>
+        <Text style={styles.citationTitle} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={styles.citationSource}>{source}</Text>
+      </View>
+      <Feather name="external-link" size={16} color="#C7C7CC" />
+    </TouchableOpacity>
+  );
+};
+
 export default function DefineGoalsScreenFive() {
   const router = useRouter();
   const user = auth?.currentUser;
 
-  // 3. Inicialização do React Hook Form
   const {
     handleSubmit,
     setValue,
@@ -59,12 +79,10 @@ export default function DefineGoalsScreenFive() {
     },
   });
 
-  // Observamos os valores para renderizar a UI dinamicamente
   const selectedProducts = watch("selectedProducts");
   const duration = watch("duration");
   const investment = watch("investment");
 
-  // 4. Funções de atualização via setValue
   const toggleProduct = (id) => {
     if (selectedProducts.includes(id)) {
       setValue(
@@ -88,7 +106,6 @@ export default function DefineGoalsScreenFive() {
     return `R$ ${value.toLocaleString("pt-BR")}`;
   };
 
-  // 5. Função para salvar os dados finais no Firestore
   const onSubmit = async (data) => {
     if (!user?.uid) {
       Alert.alert("Erro", "Usuário não autenticado.");
@@ -97,7 +114,6 @@ export default function DefineGoalsScreenFive() {
 
     try {
       const patientRef = doc(db, "patients", user.uid);
-
       const preferencesRef = doc(db, "preferences", user.uid);
 
       await setDoc(
@@ -105,15 +121,13 @@ export default function DefineGoalsScreenFive() {
         {
           ...data,
           userId: user.uid,
-          updatedAt: new Date(), // Opcional: boa prática para saber quando foi salvo
+          updatedAt: new Date(),
         },
         { merge: true },
       );
 
-      // Salva o último grupo de informações preservando o histórico dos Passos 1 ao 4
       await setDoc(patientRef, { preferences: data }, { merge: true });
 
-      // Sucesso! Redireciona para a tela final de perfil criado
       router.push("/(success-profile)");
     } catch (error) {
       console.error("Erro ao salvar preferências finais:", error);
@@ -142,7 +156,6 @@ export default function DefineGoalsScreenFive() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* TÍTULOS */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Defina seu objetivo</Text>
           <Text style={styles.subtitle}>
@@ -151,7 +164,7 @@ export default function DefineGoalsScreenFive() {
           </Text>
         </View>
 
-        {/* SEÇÃO 1: PREFERÊNCIAS (GRID) */}
+        {/* SEÇÃO 1: PREFERÊNCIAS */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>Preferências</Text>
           <Text style={styles.sectionSubtitle}>
@@ -230,7 +243,7 @@ export default function DefineGoalsScreenFive() {
           </View>
         </View>
 
-        {/* SEÇÃO 3: INVESTIMENTO MENSAL (SLIDER) */}
+        {/* SEÇÃO 3: INVESTIMENTO MENSAL */}
         <View style={styles.section}>
           <View style={styles.sliderHeaderRow}>
             <Text style={styles.sectionHeader}>Investimento mensal</Text>
@@ -247,7 +260,7 @@ export default function DefineGoalsScreenFive() {
             minimumTrackTintColor="#34C759"
             maximumTrackTintColor="#E5E5EA"
             thumbTintColor="#FFFFFF"
-            disabled={isSubmitting} // Bloqueia arrastar enquanto salva
+            disabled={isSubmitting}
           />
 
           <View style={styles.sliderValueContainer}>
@@ -257,9 +270,39 @@ export default function DefineGoalsScreenFive() {
             <Text style={styles.perMonthText}>/mês</Text>
           </View>
         </View>
+
+        {/* SEÇÃO 4: CITAÇÕES CIENTÍFICAS (NOVA SEÇÃO) */}
+        <View style={styles.citationSection}>
+          <View style={styles.citationHeaderRow}>
+            <Feather name="shield" size={20} color="#34C759" />
+            <Text style={styles.sectionHeaderCitation}>
+              Base Científica e Legal
+            </Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>
+            A Canna Consult baseia seus protocolos em regulamentações oficiais e
+            estudos clínicos rigorosos.
+          </Text>
+
+          <MedicalCitation
+            title="Autorização para importação excepcional de produtos à base de Canabidiol"
+            source="Portal Gov.br - Serviços / ANVISA"
+            url="https://www.gov.br/pt-br/servicos/solicitar-autorizacao-para-importacao-excepcional-de-produtos-a-base-de-canabidiol"
+          />
+          <MedicalCitation
+            title="Regulamentação e diretrizes para produtos derivados de Cannabis"
+            source="ANVISA - Agência Nacional de Vigilância Sanitária"
+            url="https://www.gov.br/anvisa/pt-br/assuntos/noticias-anvisa/2019/entenda-produtos-derivados-de-cannabis"
+          />
+          <MedicalCitation
+            title="Eficácia do Canabidiol (CBD) no tratamento de transtornos de ansiedade"
+            source="PubMed Central (PMC) - Estudo Clínico"
+            url="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4604171/"
+          />
+        </View>
       </ScrollView>
 
-      {/* FOOTER FIXO: Voltar e Finalizar */}
+      {/* FOOTER */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.secondaryButton}
@@ -270,7 +313,6 @@ export default function DefineGoalsScreenFive() {
           <Text style={styles.secondaryButtonText}>Voltar</Text>
         </TouchableOpacity>
 
-        {/* 6. Submissão do Formulário */}
         <TouchableOpacity
           onPress={handleSubmit(onSubmit)}
           style={[styles.primaryButton, isSubmitting && { opacity: 0.7 }]}
@@ -286,7 +328,6 @@ export default function DefineGoalsScreenFive() {
   );
 }
 
-// ... Estilos originais mantidos abaixo
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   header: {
@@ -304,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   progressText: { fontSize: 15, fontWeight: "600", color: "#8E8E93" },
-  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 60 },
   titleContainer: { marginTop: 16, marginBottom: 32 },
   title: {
     fontSize: 32,
@@ -423,4 +464,54 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   secondaryButtonText: { color: "#000000", fontWeight: "600", fontSize: 17 },
+
+  /* ESTILOS NOVOS DA CITAÇÃO */
+  citationSection: {
+    marginTop: 12,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5EA",
+  },
+  citationHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  sectionHeaderCitation: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#000000",
+  },
+  citationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F2F2F7",
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  citationIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E5E5EA",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  citationTextContainer: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  citationTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#000000",
+    marginBottom: 4,
+  },
+  citationSource: {
+    fontSize: 12,
+    color: "#8E8E93",
+  },
 });
