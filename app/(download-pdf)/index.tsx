@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -50,6 +50,7 @@ interface PatientInfo {
 export default function DownloadPDFScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const hasAutoExported = useRef(false); // Ref para evitar envios duplicados
 
   const router = useRouter();
 
@@ -66,6 +67,7 @@ export default function DownloadPDFScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
+  // 1. Busca os dados do usuário
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -114,6 +116,7 @@ export default function DownloadPDFScreen() {
     fetchUserData();
   }, []);
 
+  // 2. Registra no AsyncStorage
   useEffect(() => {
     const fetchAsyncStorage = async () => {
       await AsyncStorage.setItem("@has_consultation", "true");
@@ -121,6 +124,14 @@ export default function DownloadPDFScreen() {
 
     fetchAsyncStorage();
   }, []);
+
+  // 3. NOVO: Dispara a geração/envio do documento assim que os dados carregam
+  useEffect(() => {
+    if (!isLoadingUser && !hasAutoExported.current) {
+      hasAutoExported.current = true;
+      handleDownloadPDF();
+    }
+  }, [isLoadingUser]);
 
   const fetchChatHistory = async () => {
     if (!consultationId) {
@@ -144,7 +155,6 @@ export default function DownloadPDFScreen() {
     }
   };
 
-  // Função ajustada para receber o documento já em Base64
   const saveLaudoToFirestore = async (documentBase64: string) => {
     try {
       const auth = getAuth();
@@ -158,7 +168,7 @@ export default function DownloadPDFScreen() {
         userId: currentUser.uid,
         paciente: patientInfo.name,
         cpf: patientInfo.cpf,
-        conteudoLaudo: documentBase64, // Salva o Base64 do documento completo
+        conteudoLaudo: documentBase64,
         dataCriacao: new Date().toISOString().split("T")[0],
         timestamp: serverTimestamp(),
         status: "Pendente",
@@ -347,10 +357,8 @@ export default function DownloadPDFScreen() {
       );
       const logoUri = iconAsset ? iconAsset.uri : "";
 
-      // 1. Gera o conteúdo HTML completo com layout, cabeçalhos, etc.
       const htmlContent = generateHTML(laudoText, logoUri);
 
-      // 2. Converte ESSE HTML COMPLETO para Base64 para enviar ao Firestore
       const htmlBase64 = btoa(
         new Uint8Array(new TextEncoder().encode(htmlContent)).reduce(
           (data, byte) => data + String.fromCharCode(byte),
@@ -358,10 +366,8 @@ export default function DownloadPDFScreen() {
         ),
       );
 
-      // 3. Salva no Firestore o Base64 com o documento estruturado
       await saveLaudoToFirestore(htmlBase64);
 
-      // 4. Gera o PDF localmente para o usuário salvar/compartilhar
       const { uri } = await Print.printToFileAsync({
         html: htmlContent,
         base64: false,
@@ -411,10 +417,10 @@ export default function DownloadPDFScreen() {
             Seu Laudo está Pronto
           </Text>
           <Text style={styles.subtitle}>
-            Revise as informações e gere o documento oficial do laudo médico em
-            PDF.
+            Aguarde um instante, o documento está sendo processado...
           </Text>
 
+          {/* O botão foi mantido como um fallback caso o usuário cancele o modal de compartilhamento, mas pode ser removido se preferir */}
           <TouchableOpacity
             style={[
               styles.button,
