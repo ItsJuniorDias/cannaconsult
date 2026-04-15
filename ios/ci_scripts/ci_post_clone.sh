@@ -11,8 +11,7 @@ export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
 brew install node
 
 echo "➡️ Instalando as dependências do projeto..."
-# Se você usa yarn, troque "npm install" por "yarn install"
-npm install
+bun install
 
 echo "➡️ Instalando os Pods do iOS..."
 cd ios
