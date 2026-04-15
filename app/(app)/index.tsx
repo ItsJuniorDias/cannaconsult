@@ -51,8 +51,13 @@ export default function OnboardingScreen() {
       });
 
       if (geocode.length > 0) {
-        const userCountry = geocode[0].isoCountryCode; // Retorna 'BR', 'US', etc.
-        if (ALLOWED_COUNTRIES.includes(userCountry)) {
+        const userCountry = geocode[0].isoCountryCode;
+
+        // Verifica se a variável não é nula e converte para maiúsculo
+        if (
+          userCountry &&
+          ALLOWED_COUNTRIES.includes(userCountry.toUpperCase())
+        ) {
           setIsAllowedRegion(true);
         } else {
           setIsAllowedRegion(false);
