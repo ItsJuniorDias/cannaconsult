@@ -84,7 +84,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ExpoPrint (15.0.8):
+  - ExpoPrint (55.0.13):
     - ExpoModulesCore
   - ExpoSharing (14.0.8):
     - ExpoModulesCore
@@ -2614,7 +2614,7 @@ SPEC CHECKSUMS:
   ExpoLinking: 8f0aaf69aa56f832913030503b6263dc6f647f37
   ExpoLocation: ba5fff1510a7f123abf620fc2242db2fc87eba0f
   ExpoModulesCore: f3da4f1ab5a8375d0beafab763739dbee8446583
-  ExpoPrint: 813bfa965eda2ecc4b1cdc61612c820e239c382a
+  ExpoPrint: 3b79c16d6778b4a89fb4eb9cc346925690cb0c74
   ExpoSharing: 0d983394ed4a80334bab5a0d5384f75710feb7e8
   ExpoSplashScreen: bc3cffefca2716e5f22350ca109badd7e50ec14d
   ExpoSymbols: 349ee2b4d7d5ff3ea8436467914f8a67635aa354

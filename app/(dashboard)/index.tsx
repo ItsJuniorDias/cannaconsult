@@ -15,7 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 // Importações do Firebase
-import { collection, getDocs } from "firebase/firestore";
+import { collection, doc, getDocs, query, where } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 
 export default function Dashboard() {
@@ -41,8 +41,15 @@ export default function Dashboard() {
           return;
         }
 
+        // Cria a referência da coleção
         const laudosCollection = collection(db, "laudos");
-        const laudosSnapshot = await getDocs(laudosCollection);
+
+        // Cria a query filtrando apenas os laudos do usuário logado
+        // ATENÇÃO: Certifique-se de que o campo no Firestore se chama 'userId'
+        const q = query(laudosCollection, where("userId", "==", user.uid));
+
+        // Executa a query
+        const laudosSnapshot = await getDocs(q);
 
         const laudosData = laudosSnapshot.docs.map((doc) => ({
           id: doc.id,
@@ -74,7 +81,10 @@ export default function Dashboard() {
   // Função para abrir a URL
   const handleDownload = async (url) => {
     if (!url) {
-      Alert.alert("Aviso", "Este laudo não possui um link para download.");
+      Alert.alert(
+        "Aviso",
+        "Este documento não possui um link válido para download.",
+      );
       return;
     }
 
@@ -83,7 +93,7 @@ export default function Dashboard() {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert("Erro", "Não foi possível abrir o link deste laudo.");
+        Alert.alert("Erro", "Não foi possível abrir o link deste documento.");
       }
     } catch (error) {
       console.error("Erro ao tentar abrir URL:", error);
@@ -119,8 +129,7 @@ export default function Dashboard() {
           </View>
         </TouchableOpacity>
 
-        {/* NOVO: Card de Pagamento */}
-
+        {/* Card de Pagamento */}
         {!laudos.length && (
           <TouchableOpacity
             style={styles.paymentCard}
@@ -136,7 +145,6 @@ export default function Dashboard() {
                 Gerencie seu plano para não perder acesso aos seus laudos.
               </Text>
             </View>
-            {/* Ajuste na cor da seta para combinar com o fundo verde */}
             <Feather
               name="chevron-right"
               size={20}
@@ -178,7 +186,7 @@ export default function Dashboard() {
                     </View>
                     <View style={styles.itemContent}>
                       <Text style={styles.itemTitle}>
-                        Laudo Médico - {item.status || "Pendente"}
+                        Consulta - {item.status || "Pendente"}
                       </Text>
                       <Text style={styles.itemSubtitle}>
                         Dr(a). {item.medico || "Não informado"} •{" "}
@@ -211,7 +219,7 @@ export default function Dashboard() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Detalhes do Laudo</Text>
+              <Text style={styles.modalTitle}>Documentos Médicos</Text>
               <TouchableOpacity onPress={closeModal}>
                 <Feather name="x" size={24} color="#8E8E93" />
               </TouchableOpacity>
@@ -219,29 +227,55 @@ export default function Dashboard() {
 
             <View style={styles.modalBody}>
               <View style={styles.docIconContainer}>
-                <Feather name="file-text" size={48} color="#34C75E" />
+                <Feather name="folder" size={48} color="#34C75E" />
               </View>
               <Text style={styles.modalTextInfo}>
-                O laudo médico está pronto. Você pode visualizá-lo diretamente
-                no seu celular ou baixar a versão assinada.
+                Seus documentos médicos estão prontos. Selecione abaixo qual
+                arquivo deseja baixar para o seu dispositivo.
               </Text>
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.downloadButton]}
-                onPress={() => handleDownload(selectedLaudo?.urlAssinado)}
-              >
-                <Feather
-                  name="download"
-                  size={20}
-                  color="#FFF"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.downloadButtonText}>
-                  Baixar PDF Assinado
+              {/* Botão de Laudo */}
+              {selectedLaudo?.laudoPdfUrl && (
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.downloadButton]}
+                  onPress={() => handleDownload(selectedLaudo.laudoPdfUrl)}
+                >
+                  <Feather
+                    name="file-text"
+                    size={20}
+                    color="#FFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.downloadButtonText}>
+                    Baixar Laudo Médico
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Botão de Receita */}
+              {selectedLaudo?.receitaPdfUrl && (
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.secondaryButton]}
+                  onPress={() => handleDownload(selectedLaudo.receitaPdfUrl)}
+                >
+                  <Feather
+                    name="file-plus"
+                    size={20}
+                    color="#34C75E"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.secondaryButtonText}>Baixar Receita</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Fallback caso nenhum documento esteja disponível */}
+              {!selectedLaudo?.laudoPdfUrl && !selectedLaudo?.receitaPdfUrl && (
+                <Text style={styles.emptyModalText}>
+                  Documentos ainda não disponíveis.
                 </Text>
-              </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -273,7 +307,6 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
     marginTop: 4,
   },
-  // --- Estilos do Alerta de Documento ---
   alertCard: {
     backgroundColor: "#FFF",
     borderRadius: 20,
@@ -317,18 +350,16 @@ const styles = StyleSheet.create({
     color: "#34C75E",
     marginTop: 8,
   },
-
-  // --- NOVO: Estilos do Card de Pagamento Ajustados ---
   paymentCard: {
-    backgroundColor: "#34C75E", // Fundo verde principal
+    backgroundColor: "#34C75E",
     borderRadius: 20,
     padding: 20,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 24,
-    shadowColor: "#34C75E", // Sombra esverdeada para combinar
+    shadowColor: "#34C75E",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, // Um pouco mais visível
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 5,
   },
@@ -336,7 +367,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.25)", // Fundo do ícone contrastando com o verde
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
@@ -348,15 +379,14 @@ const styles = StyleSheet.create({
   paymentTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#FFF", // Mantém branco forte pro título
+    color: "#FFF",
   },
   paymentDescription: {
     fontSize: 13,
-    color: "rgba(255, 255, 255, 0.9)", // Descrição clara para boa leitura sobre o verde
+    color: "rgba(255, 255, 255, 0.9)",
     marginTop: 4,
     lineHeight: 18,
   },
-
   gridContainer: {
     gap: 20,
   },
@@ -381,11 +411,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#1C1C1E",
-  },
-  seeMore: {
-    fontSize: 14,
-    color: "#34C75E",
-    fontWeight: "600",
   },
   listContainer: {
     flex: 1,
@@ -440,8 +465,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#8E8E93",
   },
-
-  // --- Estilos do Modal ---
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -486,9 +509,16 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingHorizontal: 10,
   },
+  emptyModalText: {
+    fontSize: 14,
+    color: "#8E8E93",
+    textAlign: "center",
+    marginTop: 10,
+  },
   modalActions: {
     paddingTop: 10,
     gap: 12,
+    width: "100%",
   },
   actionButton: {
     flexDirection: "row",
@@ -496,12 +526,21 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     justifyContent: "center",
     alignItems: "center",
+    width: "100%",
   },
   downloadButton: {
     backgroundColor: "#34C75E",
   },
   downloadButtonText: {
     color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  secondaryButton: {
+    backgroundColor: "rgba(52, 199, 94, 0.1)",
+  },
+  secondaryButtonText: {
+    color: "#34C75E",
     fontSize: 16,
     fontWeight: "600",
   },

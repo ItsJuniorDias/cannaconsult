@@ -68,7 +68,7 @@ export default function App() {
     {
       id: "1",
       role: "model",
-      text: "Olá! Sou o Doutor. Bem-vindo à nossa consulta. Antes de começarmos, lembre-se: sou uma IA e esta é uma simulação educacional. Para iniciarmos a nossa triagem (Passo 1), o que te traz ao consultório hoje e há quanto tempo você tem esses sintomas?",
+      text: "Olá! Bem-vindo à nossa plataforma de atendimento. Sou a inteligência artificial responsável por conduzir a sua triagem inicial. Todas as informações, bem como o laudo e a proposta de receita gerados aqui, serão cuidadosamente avaliados e validados pelo Dr. João Marcos Santos da Silva (CRM-MT 14316). Para iniciarmos o Passo 1, o que te traz ao consultório hoje e há quanto tempo você tem esses sintomas?",
     },
   ]);
   const [inputText, setInputText] = useState("");
